@@ -1,0 +1,570 @@
+/* static/css/style.css */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* 상단 정렬 */
+    min-height: 100vh;
+    background-color: #282c34; /* 다크 모드 배경 */
+    color: #e0e0e0; /* 다크 모드 텍스트 색상 */
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.container {
+    background-color: #3b3f49;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    max-width: 600px;
+    width: 100%;
+    margin-top: 50px; /* 상단 여백 추가 */
+}
+
+h1, h2 {
+    color: #92e0e0; /* 제목 색상 */
+    margin-bottom: 25px;
+    font-weight: 600;
+}
+
+.timer-section, .todo-section, .music-section {
+    margin-bottom: 30px;
+    border-bottom: 1px solid #4a4f59;
+    padding-bottom: 20px;
+}
+
+.timer-section:last-child, .todo-section:last-child, .music-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+
+#timer-display {
+    font-size: 5em;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #a3da8d; /* 타이머 숫자 색상 */
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+}
+
+.timer-controls button,
+.music-controls button,
+.todo-input button {
+    background-color: #61afef;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    margin: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+#prev-music-btn, #next-music-btn {
+    padding: 12px 20px; /* 좌우 패딩을 살짝 줄임 */
+    font-weight: bold;
+}
+
+.timer-controls button:hover,
+.music-controls button:hover,
+.todo-input button:hover:not(:disabled) {
+    background-color: #529fd8;
+}
+
+.timer-controls button:disabled {
+    background-color: #5a6268;
+    cursor: not-allowed;
+}
+
+#current-phase {
+    font-size: 1.2em;
+    margin-top: 15px;
+    color: #c0c0c0;
+}
+
+/* To-Do List */
+.todo-input {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.todo-input input[type="text"] {
+    flex-grow: 1;
+    padding: 12px;
+    border: 1px solid #5a6268;
+    border-radius: 8px;
+    background-color: #4a4f59;
+    color: #e0e0e0;
+    font-size: 1em;
+}
+
+.todo-input input[type="text"]::placeholder {
+    color: #a0a0a0;
+}
+
+#todo-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#todo-list li {
+    background-color: #4a4f59;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1em;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: background-color 0.3s ease;
+}
+
+#todo-list li.completed {
+    background-color: #3a404a; /* 완료된 항목 배경색 */
+    text-decoration: line-through;
+    color: #888;
+}
+
+#todo-list li input[type="checkbox"] {
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #61afef;
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0; /* 체크박스 크기 고정 */
+}
+
+#todo-list li input[type="checkbox"]:checked {
+    background-color: #61afef;
+    border-color: #61afef;
+}
+
+#todo-list li input[type="checkbox"]:checked::after {
+    content: '✔'; /* 체크 표시 */
+    color: white;
+    font-size: 14px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#todo-list li span {
+    flex-grow: 1;
+    text-align: left;
+}
+
+#todo-list li .delete-btn {
+    background-color: #e06c75;
+    padding: 8px 15px;
+    font-size: 0.9em;
+    box-shadow: none;
+}
+
+#todo-list li .delete-btn:hover {
+    background-color: #c9525c;
+}
+
+.music-controls {
+    margin-top: 15px;
+}
+
+small {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.8em;
+    color: #a0a0a0;
+}
+
+/* === 배경 테마 스타일 === */
+body.rain {
+    background-image: url('../img/rain.png');
+}
+
+body.fireplace {
+    background-image: url('../img/fireplace.png');
+}
+
+body.forest {
+    background-image: url('../img/forest.png');
+}
+
+body.night {
+    background-image: url('../img/night.png');
+}
+
+/* 모든 테마에 공통으로 적용될 배경 스타일 */
+body.rain, body.fireplace, body.forest, body.night {
+    background-size: cover; /* 이미지가 화면을 꽉 채우도록 */
+    background-position: center; /* 이미지가 중앙에 오도록 */
+    background-repeat: no-repeat; /* 이미지가 반복되지 않도록 */
+    transition: background-image 0.5s ease-in-out; /* 배경이 부드럽게 바뀌는 효과 */
+}
+
+/* === 커스텀 타이머 설정 스타일 === */
+.custom-timer-settings {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #4a4f59;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap; /* 화면이 작아지면 줄바꿈 */
+}
+
+.custom-timer-settings div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.custom-timer-settings label {
+    font-size: 0.9em;
+    color: #c0c0c0;
+}
+
+.custom-timer-settings input[type="number"] {
+    width: 60px; /* 입력 필드 너비 */
+    padding: 8px;
+    border: 1px solid #5a6268;
+    border-radius: 8px;
+    background-color: #4a4f59;
+    color: #e0e0e0;
+    font-size: 1em;
+    text-align: center;
+}
+
+#save-settings-btn {
+    background-color: #98c379; /* 저장 버튼은 초록색으로 */
+    padding: 8px 18px;
+}
+
+#save-settings-btn:hover {
+    background-color: #89b16a;
+}
+
+/* === 헤더 컨트롤 (제목 + 통계 버튼) === */
+.header-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+#stats-btn {
+    background-color: #c678dd; /* 보라색 계열로 포인트 */
+    padding: 8px 18px;
+    font-size: 0.9em;
+}
+
+#stats-btn:hover {
+    background-color: #b368c4;
+}
+
+/* === 헤더 컨트롤 (버튼 정렬용) === */
+.header-controls div {
+    display: flex;
+    gap: 10px;
+}
+
+#journal-btn {
+    background-color: #d19a66; /* 주황색 계열로 포인트 */
+    padding: 8px 18px;
+    font-size: 0.9em;
+}
+
+#journal-btn:hover {
+    background-color: #c08b5a;
+}
+
+
+/* === 회고 일지 모달 스타일 === */
+.journal-input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+#journal-entry-input {
+    width: 100%;
+    min-height: 100px; /* 최소 높이 */
+    padding: 12px;
+    border: 1px solid #5a6268;
+    border-radius: 8px;
+    background-color: #4a4f59;
+    color: #e0e0e0;
+    font-size: 1em;
+    font-family: inherit; /* body의 폰트를 그대로 사용 */
+    resize: vertical; /* 세로 크기만 조절 가능하게 */
+}
+
+#save-journal-btn {
+    align-self: flex-end; /* 버튼을 오른쪽으로 정렬 */
+    background-color: #98c379;
+    padding: 8px 18px;
+}
+#save-journal-btn:hover {
+    background-color: #89b16a;
+}
+
+.modal-divider {
+    border: none;
+    border-top: 1px solid #4a4f59;
+    margin: 25px 0;
+}
+
+#past-entries-container {
+    max-height: 40vh; /* 과거 일지 영역이 너무 길어지지 않게 */
+    overflow-y: auto; /* 내용이 길어지면 스크롤 생성 */
+    padding-right: 10px; /* 스크롤바와 내용이 겹치지 않게 */
+}
+
+.journal-entry {
+    background-color: #4a4f59;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.journal-entry .date {
+    font-size: 0.9em;
+    font-weight: bold;
+    color: #92e0e0;
+    margin-bottom: 10px;
+}
+
+.journal-entry .text {
+    font-size: 1em;
+    line-height: 1.6;
+    white-space: pre-wrap; /* 줄바꿈과 띄어쓰기를 그대로 표시 */
+}
+
+/* === 사운드 믹서 스타일 === */
+.sound-mixer-section {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #4a4f59;
+}
+
+.sound-mixer-section h3 {
+    margin-bottom: 15px;
+    color: #c0c0c0;
+    font-size: 1.1em;
+}
+
+.mixer-control {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.mixer-control label {
+    flex-basis: 100px; /* 라벨 너비 고정 */
+    text-align: right;
+    font-size: 0.9em;
+}
+
+.mixer-control select {
+    flex-grow: 1; /* 남은 공간 모두 차지 */
+    padding: 8px;
+    border: 1px solid #5a6268;
+    background-color: #4a4f59;
+    color: #e0e0e0;
+    border-radius: 8px;
+}
+
+/* 볼륨 슬라이더 스타일 */
+input[type="range"] {
+    flex-grow: 1;
+    -webkit-appearance: none; /* 기본 스타일 제거 */
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: #5a6268;
+    border-radius: 5px;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity .2s;
+}
+input[type="range"]:hover {
+    opacity: 1;
+}
+/* 슬라이더 핸들(동그라미) 스타일 */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #61afef;
+    border-radius: 50%;
+    cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #61afef;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+/* === 주간 목표 섹션 스타일 === */
+.goal-section {
+    margin-bottom: 30px;
+    border-bottom: 1px solid #4a4f59;
+    padding-bottom: 20px;
+}
+
+.goal-section h2 {
+    color: #92e0e0;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.goal-input-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#goal-input {
+    width: 80px;
+    text-align: center;
+}
+
+#save-goal-btn {
+    background-color: #98c379;
+}
+#save-goal-btn:hover {
+    background-color: #89b16a;
+}
+
+.goal-progress-section {
+    padding: 0 10%; /* 좌우 여백 */
+}
+
+#goal-progress-text {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 25px;
+    background-color: #4a4f59;
+    border-radius: 12px;
+    overflow: hidden; /* 둥근 모서리 밖으로 나가지 않게 */
+}
+
+#progress-bar {
+    width: 0%; /* JavaScript로 너비를 조절할 것임 */
+    height: 100%;
+    background-color: #a3da8d;
+    border-radius: 12px;
+    transition: width 0.5s ease-in-out; /* 부드럽게 채워지는 효과 */
+    text-align: center;
+    line-height: 25px;
+    color: #282c34;
+    font-weight: bold;
+}
+
+/* === 미니 퀘스트 섹션 스타일 === */
+.quest-section {
+    margin-bottom: 30px;
+    border-bottom: 1px solid #4a4f59;
+    padding: 20px;
+    text-align: center;
+    background-color: rgba(0, 0, 0, 0.1); /* 살짝 다른 배경으로 구분 */
+    border-radius: 8px;
+}
+
+.quest-section h2 {
+    color: #92e0e0;
+    margin-bottom: 15px;
+}
+
+#quest-description {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #e0e0e0;
+}
+
+#quest-progress-text {
+    font-size: 1em;
+    color: #c0c0c0;
+    margin-top: 5px;
+}
+
+#reward-message {
+    margin-top: 15px;
+    padding: 12px;
+    background-color: #e5c07b; /* 황금색 배경 */
+    color: #282c34; /* 어두운 글자색 */
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.2em;
+    transition: opacity 0.5s ease;
+}
+
+#reward-message.hidden {
+    display: none; /* hidden 클래스가 있으면 완전히 숨김 */
+}
+
+/* === 탭 네비게이션 스타일 === */
+.tab-navigation {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #4a4f59;
+}
+
+.tab-btn {
+    padding: 15px 20px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: #c0c0c0;
+    font-size: 1.1em;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent; /* 비활성 탭의 밑줄 */
+}
+
+.tab-btn:hover {
+    color: white;
+}
+
+.tab-btn.active {
+    color: #92e0e0; /* 활성 탭 색상 */
+    border-bottom-color: #92e0e0; /* 활성 탭 밑줄 */
+}
+
+/* === 탭 컨텐츠 스타일 === */
+.tab-content {
+    display: none; /* 기본적으로 모든 방은 숨김 */
+}
+
+.tab-content.active {
+    display: block; /* 활성화된 방만 보여줌 */
+}
+
+/* 기존 섹션들 내부 여백 조절 */
+.timer-section, .todo-section, .goal-section, .quest-section, .stats-section, .journal-section, .custom-timer-settings, .music-section, .sound-mixer-section {
+    padding: 20px 0;
+}

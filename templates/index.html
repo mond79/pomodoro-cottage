@@ -1,0 +1,164 @@
+<!-- templates/index.html (최신 버전) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>몬드의 코티지 뽀모도로</title>
+    <link id="favicon" rel="icon" href="{{ url_for('static', filename='tree.ico') }}">
+
+    <!-- ⭐⭐ 여기부터 추가! ⭐⭐ -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#3b3f49">
+    <!-- ⭐⭐ 여기까지! ⭐⭐ -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- ⭐ 1. 탭 네비게이션 (새로운 아파트의 복도) ⭐ -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="timer">⏰ 타이머</button>
+            <button class="tab-btn" data-tab="goals">🎯 목표</button>
+            <button class="tab-btn" data-tab="records">📈 기록</button>
+            <button class="tab-btn" data-tab="settings">⚙️ 설정</button>
+        </div>
+
+        <!-- ⭐ 2. 탭 컨텐츠 컨테이너 (각각의 방) ⭐ -->
+        <div class="tab-content-container">
+            <!-- 部屋 1: 타이머 탭 (기본으로 보일 방) -->
+            <div id="tab-timer" class="tab-content active">
+                <div class="header-controls">
+                    <h1>🌳 몬드의 코티지 뽀모도로</h1>
+                </div>
+                <div class="timer-section">
+                    <div id="timer-display">25:00</div>
+                    <p id="current-phase">집중 시간</p>
+                    <div class="timer-controls">
+                        <button id="start-btn">시작</button>
+                        <button id="pause-btn">일시정지</button>
+                        <button id="reset-btn">초기화</button>
+                    </div>
+                </div>
+                <div class="todo-section">
+                    <h2>✅ 할 일 목록</h2>
+                    <div class="todo-input"><input type="text" id="new-todo" placeholder="새로운 할 일을 추가하세요"><button id="add-todo-btn">추가</button></div>
+                    <ul id="todo-list"></ul>
+                </div>
+            </div>
+
+            <!-- 部屋 2: 목표 탭 -->
+            <div id="tab-goals" class="tab-content">
+                <div class="goal-section">
+                    <h2>📅 주간 목표</h2>
+                    <div class="goal-input-section"><label for="goal-input">이번 주 뽀모도로 목표 횟수:</label><input type="number" id="goal-input" min="1" placeholder="예: 20"><button id="save-goal-btn">목표 저장</button></div>
+                    <div class="goal-progress-section"><p id="goal-progress-text">목표를 설정해주세요!</p><div class="progress-bar-container"><div id="progress-bar"></div></div></div>
+                </div>
+                <div class="quest-section">
+                    <h2>📚 오늘의 퀘스트</h2>
+                    <p id="quest-description">뽀모도로 4회 완료하기</p>
+                    <p id="quest-progress-text">달성 현황: 0 / 4 회</p>
+                    <p id="reward-message" class="hidden">🎉 퀘스트 완료! 정말 대단해요! 🍪</p>
+                </div>
+            </div>
+
+            <!-- 部屋 3: 기록 탭 (기존 모달이 여기로 이사!) -->
+            <div id="tab-records" class="tab-content">
+                <div class="stats-section">
+                    <h2>📈 나의 집중 기록</h2>
+                    <div class="chart-container"><canvas id="pomodoro-chart"></canvas></div>
+                    <p id="total-focus-time">총 집중 시간: 0시간 0분</p>
+                </div>
+                <hr class="modal-divider">
+                <div class="journal-section">
+                    <h2>📖 나의 회고 일지</h2>
+                    <div class="journal-input-section"><textarea id="journal-entry-input" placeholder="오늘의 집중은 어땠나요?"></textarea><button id="save-journal-btn">일기 저장</button></div>
+                    <div id="past-entries-container"></div>
+                </div>
+            </div>
+            
+            <!-- 部屋 4: 설정 탭 -->
+            <div id="tab-settings" class="tab-content">
+                <div class="custom-timer-settings">
+                    <h2>⏱️ 타이머 설정</h2>
+                    <div><label for="focus-time-input">집중(분):</label><input type="number" id="focus-time-input" value="25" min="1"></div>
+                    <div><label for="break-time-input">휴식(분):</label><input type="number" id="break-time-input" value="5" min="1"></div>
+                    <button id="save-settings-btn">설정 저장</button>
+                </div>
+                <div class="music-section">
+                    <h2>🎵 배경 음악 & 테마</h2>
+
+                    <!-- '분위기'와 '음악 선택'을 그룹으로 묶어서 관리 -->
+                    <div class="selector-group">
+                        <label for="mood-selector">분위기:</label>
+                        <select id="mood-selector">
+                            <option value="all">모든 음악</option>
+                            <option value="night">밤</option>
+                            <option value="nature">자연</option>
+                            <option value="cozy">아늑함</option>
+                            <option value="rainy">비</option>
+                            <option value="focus">집중</option>
+                        </select>
+                    </div>
+
+                    <div class="selector-group">
+                        <label for="music-selector">음악 선택:</label>
+                        <select id="music-selector">
+                            <!-- JavaScript가 분위기에 맞춰 이 부분을 동적으로 채울 예정 -->
+                        </select>
+                    </div>
+
+                    <div class="selector-group">
+                        <label for="theme-selector">테마 선택:</label>
+                        <select id="theme-selector">
+                        <option value="default">기본 테마</option>
+                        <option value="rain">비 오는 날</option>
+                        <option value="fireplace">벽난로</option>
+                        <option value="forest">숲 속</option>
+                        <option value="night">고요한 밤</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 오디오 태그들과 컨트롤 버튼들은 그대로 유지! -->
+                    <audio id="background-music"><source src="" type="audio/mpeg"></audio>
+                    <audio id="ambient-sound" loop><source src="" type="audio/mpeg"></audio>
+
+                    <div class="music-controls">
+                        <button id="prev-music-btn">◀◀</button>
+                        <button id="play-music-btn">재생</button>
+                        <button id="pause-music-btn">일시정지</button>
+                        <button id="next-music-btn">▶▶</button>
+                    </div>
+                </div>
+                <div class="sound-mixer-section">
+                    <h3>🔊 환경음 믹서</h3>
+                    <div class="mixer-control"><label for="ambient-selector">환경음 선택:</label><select id="ambient-selector"><option value="none">없음</option>{% for ambient_file in ambient_files %}<option value="{{ ambient_file }}">{{ ambient_file.replace('.mp3', '').replace('.wav', '') }}</option>{% endfor %}</select></div>
+                    <div class="mixer-control"><label for="music-volume-slider">🎵 음악 볼륨:</label><input type="range" id="music-volume-slider" min="0" max="1" step="0.01" value="0.5"></div>
+                    <div class="mixer-control"><label for="ambient-volume-slider">🔊 환경음 볼륨:</label><input type="range" id="ambient-volume-slider" min="0" max="1" step="0.01" value="0.5"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 오디오와 스크립트 파일들은 그대로 둡니다 -->
+    <audio id="bell-sound" src="{{ url_for('static', filename='sounds/bell.wav') }}" preload="auto"></audio>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+    <!-- ⭐⭐ 여기부터 추가! ⭐⭐ -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered! Scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('Service Worker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+    <!-- ⭐⭐ 여기까지! ⭐⭐ -->
+</body>
+</html>
