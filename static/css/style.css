@@ -568,3 +568,63 @@ input[type="range"]::-moz-range-thumb {
 .timer-section, .todo-section, .goal-section, .quest-section, .stats-section, .journal-section, .custom-timer-settings, .music-section, .sound-mixer-section {
     padding: 20px 0;
 }
+
+/* === 활동 달력 스타일 === */
+.calendar-container {
+    margin-top: 20px;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.calendar-header h3 {
+    color: #e0e0e0;
+    font-size: 1.4em;
+}
+
+#prev-month-btn, #next-month-btn {
+    background: none;
+    border: 1px solid #5a6268;
+    color: #c0c0c0;
+    cursor: pointer;
+    font-size: 1.5em;
+    padding: 0 12px;
+    border-radius: 8px;
+}
+
+.calendar-weekdays, .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr); /* 7개의 열을 만듦 */
+    gap: 5px;
+}
+
+.calendar-weekdays div {
+    text-align: center;
+    font-weight: bold;
+    color: #c0c0c0;
+    padding-bottom: 10px;
+}
+
+.calendar-day {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 50px;
+    background-color: #4a4f59;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.calendar-day.empty {
+    background-color: transparent;
+}
+
+.calendar-day.active-day {
+    background-color: #a3da8d; /* 집중한 날은 초록색으로! */
+    color: #282c34;
+    font-weight: bold;
+}

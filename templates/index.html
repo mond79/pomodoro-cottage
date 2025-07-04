@@ -64,18 +64,41 @@
 
             <!-- 部屋 3: 기록 탭 (기존 모달이 여기로 이사!) -->
             <div id="tab-records" class="tab-content">
-                <div class="stats-section">
-                    <h2>📈 나의 집중 기록</h2>
-                    <div class="chart-container"><canvas id="pomodoro-chart"></canvas></div>
-                    <p id="total-focus-time">총 집중 시간: 0시간 0분</p>
-                </div>
-                <hr class="modal-divider">
-                <div class="journal-section">
-                    <h2>📖 나의 회고 일지</h2>
-                    <div class="journal-input-section"><textarea id="journal-entry-input" placeholder="오늘의 집중은 어땠나요?"></textarea><button id="save-journal-btn">일기 저장</button></div>
-                    <div id="past-entries-container"></div>
+                <!-- ⭐⭐ 여기부터 '월간 달력' UI 추가! ⭐⭐ -->
+            <div class="stats-section">
+                <h2>🗓️ 나의 활동 달력</h2>
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <button id="prev-month-btn"><</button>
+                        <h3 id="current-month-year"></h3>
+                        <button id="next-month-btn">></button>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+                    </div>
+                    <div id="calendar-grid" class="calendar-grid">
+                        <!-- JavaScript가 여기에 날짜를 채울 거야 -->
+                    </div>
                 </div>
             </div>
+            <!-- ⭐⭐ 여기까지! ⭐⭐ -->
+
+            <hr class="modal-divider">
+
+            <div class="stats-section">
+                <h2>📈 나의 집중 기록 (최근 7일)</h2>
+                <div class="chart-container"><canvas id="pomodoro-chart"></canvas></div>
+                <p id="total-focus-time">총 집중 시간: 0시간 0분</p>
+            </div>
+
+            <hr class="modal-divider">
+
+            <div class="journal-section">
+                <h2>📖 나의 회고 일지</h2>
+                            <div class="journal-input-section"><textarea id="journal-entry-input" placeholder="오늘의 집중은 어땠나요?"></textarea><button id="save-journal-btn">일기 저장</button></div>
+                            <div id="past-entries-container"></div>
+                        </div>
+                    </div>
             
             <!-- 部屋 4: 설정 탭 -->
             <div id="tab-settings" class="tab-content">

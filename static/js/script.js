@@ -74,6 +74,8 @@ function initializeTabs() {
             
             // '기록' 탭을 열었을 때만 차트와 일지를 로드/생성 (최적화!)
             if (tabName === 'records') {
+                currentDisplayDate = new Date(); // '기록' 탭을 열 때마다 현재 달로 리셋
+                generateCalendar(currentDisplayDate); // ⭐ 달력 생성 함수 호출
                 generateStatsChart();
                 displayPastEntries();
             }
@@ -137,6 +139,12 @@ const journalEntryInput = document.getElementById('journal-entry-input');
 const saveJournalBtn = document.getElementById('save-journal-btn');
 const pastEntriesContainer = document.getElementById('past-entries-container');
 
+// 활동 달력 기능
+let currentDisplayDate = new Date(); // ⭐ 추가: 달력이 보여줄 현재 날짜
+const calendarGrid = document.getElementById('calendar-grid'); 
+const currentMonthYear = document.getElementById('current-month-year'); 
+const prevMonthBtn = document.getElementById('prev-month-btn'); 
+const nextMonthBtn = document.getElementById('next-month-btn'); 
 
 // ==========================================================
 //                 초기화 헬퍼 함수들
@@ -411,8 +419,59 @@ function updateQuestProgress() {
 }
 
 // ==========================================================
-//                     기록 기능 (통계, 일지)
+//                     기록 기능 (통계, 일지, 달력)
 // ==========================================================
+// ⭐⭐ 새로운 '활동 달력' 관련 함수들 추가! ⭐⭐
+function generateCalendar(date) {
+    const pomodoroStats = JSON.parse(localStorage.getItem('pomodoroStats')) || [];
+    const monthlyData = {};
+    pomodoroStats.forEach(session => {
+        const dateKey = session.date;
+        monthlyData[dateKey] = (monthlyData[dateKey] || 0) + 1; // 날짜별 세션 횟수
+    });
+
+    calendarGrid.innerHTML = '';
+    const year = date.getFullYear();
+    const month = date.getMonth(); // 0 (1월) - 11 (12월)
+
+    currentMonthYear.textContent = `${year}년 ${month + 1}월`;
+
+    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0(일) - 6(토)
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // 달력의 시작 부분 (빈 칸 채우기)
+    for (let i = 0; i < firstDayOfMonth; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.classList.add('calendar-day', 'empty');
+        calendarGrid.appendChild(emptyCell);
+    }
+
+    // 실제 날짜 채우기
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayCell = document.createElement('div');
+        dayCell.classList.add('calendar-day');
+        dayCell.textContent = day;
+
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        if (monthlyData[dateStr]) {
+            dayCell.classList.add('active-day');
+            // 툴팁으로 횟수 보여주기 (보너스 기능!)
+            dayCell.title = `${monthlyData[dateStr]}회 집중!`;
+        }
+        calendarGrid.appendChild(dayCell);
+    }
+}
+
+prevMonthBtn.addEventListener('click', () => {
+    currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
+    generateCalendar(currentDisplayDate);
+});
+
+nextMonthBtn.addEventListener('click', () => {
+    currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
+    generateCalendar(currentDisplayDate);
+});
+
 function generateStatsChart() {
     const stats = JSON.parse(localStorage.getItem('pomodoroStats')) || [];
     const processedData = {}; let totalMinutes = 0;
