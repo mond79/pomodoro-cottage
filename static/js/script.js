@@ -422,10 +422,42 @@ moodSelector.addEventListener('change', () => {
 //                     목표 기능 (주간, 일일)
 // ==========================================================
 function recordFocusSession(durationMinutes) {
+    // 1. 기존처럼 로컬 스토리지에 통계 기록
     const stats = JSON.parse(localStorage.getItem('pomodoroStats')) || [];
     const today = new Date().toISOString().slice(0, 10);
     stats.push({ date: today, duration: durationMinutes });
     localStorage.setItem('pomodoroStats', JSON.stringify(stats));
+
+    // ⭐⭐ 여기부터 '주문 넣기' 로직 추가! ⭐⭐
+    // 2. 서버에 캘린더 이벤트 추가를 요청합니다.
+    fetch('/add_event', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        // 몇 분짜리 집중이었는지 정보를 함께 보냅니다.
+        body: JSON.stringify({ duration: durationMinutes }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ 캘린더에 이벤트가 성공적으로 추가되었습니다.');
+        } else if (data.error) {
+            // 로그인은 되어있지만, 다른 문제가 발생한 경우 (예: 토큰 만료)
+            console.error('캘린더 이벤트 추가 실패:', data.error);
+        } else {
+            // 로그인이 안 되어있으면, 서버는 401 에러를 보내고 여기로 오지 않음.
+            // 하지만 만약을 대비한 로그.
+            console.log('캘린더 이벤트가 추가되지 않았습니다 (로그인 안 됨).');
+        }
+    })
+    .catch(error => {
+        // 네트워크 문제 등으로 서버와 통신 자체가 실패한 경우
+        console.error('서버와 통신 중 오류 발생:', error);
+    });
+    // ⭐⭐ 여기까지! ⭐⭐
+
+    // 3. 기존처럼 다른 UI 업데이트 함수들도 호출
     updateGoalProgress();
     updateQuestProgress();
 }

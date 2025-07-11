@@ -670,3 +670,19 @@ input[type="range"]::-moz-range-thumb {
 
 /* === 알림 설정 스타일 === */
 .notification-settings{margin-top:25px;padding-top:20px;border-top:1px solid #4a4f59}.setting-item{display:flex;justify-content:space-between;align-items:center}.setting-item label{font-weight:700;color:#c0c0c0}.switch{position:relative;display:inline-block;width:60px;height:34px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#5a6268;transition:.4s;border-radius:34px}.slider:before{position:absolute;content:"";height:26px;width:26px;left:4px;bottom:4px;background-color:#fff;transition:.4s;border-radius:50%}input:checked+.slider{background-color:#61afef}input:checked+.slider:before{transform:translateX(26px)}
+
+/* === 구글 캘린더 설정 스타일 === */
+.gcal-settings { margin-top: 25px; padding-top: 20px; border-top: 1px solid #4a4f59; text-align: center; }
+.gcal-settings p { margin-bottom: 15px; color: #c0c0c0; }
+.gcal-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+.gcal-btn.login { background-color: #4285F4; color: white; } /* 구글 파란색 */
+.gcal-btn.login:hover { background-color: #357ae8; }
+.gcal-btn.logout { background-color: #e06c75; color: white; } /* 로그아웃은 빨간색 */
+.gcal-btn.logout:hover { background-color: #c9525c; }

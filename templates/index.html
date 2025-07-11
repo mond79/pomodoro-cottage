@@ -129,6 +129,26 @@
                     </div>
                 </div>
                 <!-- ⭐⭐ 여기까지! ⭐⭐ -->
+
+                <hr class="modal-divider"> <!-- 구분선 추가 -->
+    
+                <!-- ⭐⭐ '구글 캘린더 연동' UI 추가! ⭐⭐ -->
+                <div class="gcal-settings">
+                    <h2>🔗 구글 캘린더 연동</h2>
+                    
+                    <!-- 사용자의 로그인 상태에 따라 다른 버튼을 보여줄 거야 -->
+                    {% if is_logged_in %}
+                        <!-- 로그인 된 상태일 때 -->
+                        <p>✅ 구글 캘린더에 집중 시간이 자동으로 기록됩니다.</p>
+                        <a href="/logout" class="gcal-btn logout">연동 해제하기</a>
+                    {% else %}
+                        <!-- 로그아웃 된 상태일 때 -->
+                        <p>집중 시간을 당신의 구글 캘린더에 자동으로 기록해보세요!</p>
+                        <a href="/authorize" class="gcal-btn login">구글 캘린더 연동하기</a>
+                    {% endif %}
+                </div>
+                <!-- ⭐⭐ 여기까지! ⭐⭐ -->
+
                 <div class="custom-timer-settings">
                     <h2>⏱️ 타이머 설정</h2>
                     <div><label for="focus-time-input">집중(분):</label><input type="number" id="focus-time-input" value="25" min="1"></div>
