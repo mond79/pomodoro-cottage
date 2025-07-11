@@ -141,10 +141,10 @@ const pastEntriesContainer = document.getElementById('past-entries-container');
 
 // 활동 달력 기능
 let currentDisplayDate = new Date(); // ⭐ 추가: 달력이 보여줄 현재 날짜
-const calendarGrid = document.getElementById('calendar-grid'); 
-const currentMonthYear = document.getElementById('current-month-year'); 
-const prevMonthBtn = document.getElementById('prev-month-btn'); 
-const nextMonthBtn = document.getElementById('next-month-btn'); 
+const calendarGrid = document.getElementById('calendar-grid');
+const currentMonthYear = document.getElementById('current-month-year');
+const prevMonthBtn = document.getElementById('prev-month-btn');
+const nextMonthBtn = document.getElementById('next-month-btn');
 
 // ==========================================================
 //                 초기화 헬퍼 함수들
@@ -423,50 +423,59 @@ function updateQuestProgress() {
 // ==========================================================
 // ⭐⭐ 새로운 '활동 달력' 관련 함수들 추가! ⭐⭐
 function generateCalendar(date) {
+    // 1. localStorage에서 통계 데이터를 가져와서 가공하기
     const pomodoroStats = JSON.parse(localStorage.getItem('pomodoroStats')) || [];
     const monthlyData = {};
     pomodoroStats.forEach(session => {
-        const dateKey = session.date;
-        monthlyData[dateKey] = (monthlyData[dateKey] || 0) + 1; // 날짜별 세션 횟수
+        const dateKey = session.date; // "YYYY-MM-DD" 형식
+        monthlyData[dateKey] = (monthlyData[dateKey] || 0) + 1; // 날짜별 세션 횟수 계산
     });
 
-    calendarGrid.innerHTML = '';
+    // 2. 달력을 그리는 데 필요한 정보 계산
+    calendarGrid.innerHTML = ''; // 기존 달력 내용 초기화
     const year = date.getFullYear();
-    const month = date.getMonth(); // 0 (1월) - 11 (12월)
+    const month = date.getMonth(); // 0 (1월) ~ 11 (12월)
 
     currentMonthYear.textContent = `${year}년 ${month + 1}월`;
 
-    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0(일) - 6(토)
+    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0(일) ~ 6(토)
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    // 달력의 시작 부분 (빈 칸 채우기)
+    // 3. 달력 그리기 시작
+    // 1일이 시작되기 전의 빈 칸 채우기
     for (let i = 0; i < firstDayOfMonth; i++) {
         const emptyCell = document.createElement('div');
         emptyCell.classList.add('calendar-day', 'empty');
         calendarGrid.appendChild(emptyCell);
     }
 
-    // 실제 날짜 채우기
+    // 실제 날짜 채우기 (1일부터 마지막 날까지)
     for (let day = 1; day <= daysInMonth; day++) {
         const dayCell = document.createElement('div');
         dayCell.classList.add('calendar-day');
         dayCell.textContent = day;
 
+        // "YYYY-MM-DD" 형식의 날짜 문자열 만들기
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        // 만약 해당 날짜에 집중 기록이 있다면?
         if (monthlyData[dateStr]) {
             dayCell.classList.add('active-day');
-            // 툴팁으로 횟수 보여주기 (보너스 기능!)
+            // 마우스를 올렸을 때 "N회 집중!" 툴팁 보여주기
             dayCell.title = `${monthlyData[dateStr]}회 집중!`;
         }
         calendarGrid.appendChild(dayCell);
     }
 }
 
+// === 이벤트 리스너 추가 ===
+// 이전 달 버튼 클릭 시
 prevMonthBtn.addEventListener('click', () => {
     currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
     generateCalendar(currentDisplayDate);
 });
 
+// 다음 달 버튼 클릭 시
 nextMonthBtn.addEventListener('click', () => {
     currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
     generateCalendar(currentDisplayDate);

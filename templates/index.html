@@ -68,19 +68,29 @@
             <div class="stats-section">
                 <h2>🗓️ 나의 활동 달력</h2>
                 <div class="calendar-container">
+                    <!-- 달력 헤더: 이전/다음 달 버튼과 현재 연도/월 표시 -->
                     <div class="calendar-header">
-                        <button id="prev-month-btn"><</button>
-                        <h3 id="current-month-year"></h3>
-                        <button id="next-month-btn">></button>
+                        <button id="prev-month-btn"><</button> <!-- < (이전) -->
+                        <h3 id="current-month-year"></h3> <!-- ex) 2024년 5월 -->
+                        <button id="next-month-btn">></button> <!-- > (다음) -->
                     </div>
+
+                    <!-- 요일 표시 (일 ~ 토) -->
                     <div class="calendar-weekdays">
-                        <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+                        <div>일</div>
+                        <div>월</div>
+                        <div>화</div>
+                        <div>수</div>
+                        <div>목</div>
+                        <div>금</div>
+                        <div>토</div>
                     </div>
+
+                    <!-- 실제 날짜가 채워질 격자판 (지금은 비어있음) -->
                     <div id="calendar-grid" class="calendar-grid">
-                        <!-- JavaScript가 여기에 날짜를 채울 거야 -->
+                        <!-- JavaScript가 이곳을 마법처럼 채울 거야! -->
                     </div>
                 </div>
-            </div>
             <!-- ⭐⭐ 여기까지! ⭐⭐ -->
 
             <hr class="modal-divider">
