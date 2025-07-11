@@ -628,3 +628,42 @@ input[type="range"]::-moz-range-thumb {
     color: #282c34;
     font-weight: bold;
 }
+
+/* === 회고 일지 감정 선택 스타일 === */
+.emotion-selector {
+    margin-top: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.emotion-selector p {
+    font-weight: bold;
+    color: #c0c0c0;
+}
+
+.emotion-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.emotion-btn {
+    font-size: 1.8em;
+    background: none;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    padding: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.5; /* 기본적으로는 살짝 흐리게 */
+}
+
+.emotion-btn:hover {
+    opacity: 1;
+}
+
+.emotion-btn.selected {
+    opacity: 1;
+    border-color: #92e0e0; /* 선택되면 테두리 표시! */
+    transform: scale(1.1); /* 살짝 커지는 효과 */
+}

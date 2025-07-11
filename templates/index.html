@@ -95,7 +95,22 @@
 
             <div class="journal-section">
                 <h2>📖 나의 회고 일지</h2>
-                            <div class="journal-input-section"><textarea id="journal-entry-input" placeholder="오늘의 집중은 어땠나요?"></textarea><button id="save-journal-btn">일기 저장</button></div>
+                            <div class="journal-input-section">
+                                <textarea id="journal-entry-input" placeholder="오늘의 집중은 어땠나요?"></textarea>
+                                
+                                <!-- ⭐⭐ 여기부터 '감정 선택' UI 추가! ⭐⭐ -->
+                                <div class="emotion-selector">
+                                    <p>오늘의 기분은?</p>
+                                    <div class="emotion-buttons">
+                                        <button class="emotion-btn" data-emotion="happy">😊</button>
+                                        <button class="emotion-btn" data-emotion="neutral">😐</button>
+                                        <button class="emotion-btn" data-emotion="sad">😩</button>
+                                    </div>
+                                </div>
+                                <!-- ⭐⭐ 여기까지! ⭐⭐ -->
+
+                                <button id="save-journal-btn">일기 저장</button>
+                            </div>
                             <div id="past-entries-container"></div>
                         </div>
                     </div>

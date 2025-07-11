@@ -146,6 +146,10 @@ const currentMonthYear = document.getElementById('current-month-year');
 const prevMonthBtn = document.getElementById('prev-month-btn'); 
 const nextMonthBtn = document.getElementById('next-month-btn'); 
 
+// 감정 기록 기능
+const emotionButtons = document.querySelectorAll('.emotion-btn'); 
+let selectedEmotion = null; // ⭐ 추가: 선택된 감정을 저장할 변수
+
 // ==========================================================
 //                 초기화 헬퍼 함수들
 // ==========================================================
@@ -423,54 +427,72 @@ function updateQuestProgress() {
 // ==========================================================
 // ⭐⭐ 새로운 '활동 달력' 관련 함수들 추가! ⭐⭐
 function generateCalendar(date) {
+    // 1. '일기'와 '집중' 기록을 모두 불러옵니다.
+    const journalEntries = JSON.parse(localStorage.getItem('pomodoroJournal')) || [];
     const pomodoroStats = JSON.parse(localStorage.getItem('pomodoroStats')) || [];
+    
+    // 2. 날짜별로 횟수와 감정을 담을 똑똑한 객체를 만듭니다.
     const monthlyData = {};
+
+    // 먼저, 집중 횟수를 기록합니다.
     pomodoroStats.forEach(session => {
         const dateKey = session.date;
-        monthlyData[dateKey] = (monthlyData[dateKey] || 0) + 1; // 날짜별 세션 횟수
+        if (!monthlyData[dateKey]) { monthlyData[dateKey] = { count: 0, emotion: null }; }
+        monthlyData[dateKey].count++;
     });
+    // 그 다음, 감정 기록을 덮어씁니다.
+    journalEntries.forEach(entry => {
+        const dateKey = entry.date;
+        if (!monthlyData[dateKey]) { monthlyData[dateKey] = { count: 0, emotion: null }; }
+        if (entry.emotion) {
+            monthlyData[dateKey].emotion = entry.emotion;
+        }
+    });
+    // 💥💥 여기에 있던 닫는 괄호를 제거했어! 💥💥
 
+    // --- 여기부터 달력을 그리는 부분 ---
     calendarGrid.innerHTML = '';
     const year = date.getFullYear();
-    const month = date.getMonth(); // 0 (1월) - 11 (12월)
-
+    const month = date.getMonth();
     currentMonthYear.textContent = `${year}년 ${month + 1}월`;
-
-    const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0(일) - 6(토)
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    // 달력의 시작 부분 (빈 칸 채우기)
+    // 빈 칸 채우기
     for (let i = 0; i < firstDayOfMonth; i++) {
         const emptyCell = document.createElement('div');
         emptyCell.classList.add('calendar-day', 'empty');
         calendarGrid.appendChild(emptyCell);
     }
 
-    // 실제 날짜 채우기
+    // 날짜 채우기
     for (let day = 1; day <= daysInMonth; day++) {
         const dayCell = document.createElement('div');
         dayCell.classList.add('calendar-day');
-        dayCell.textContent = day;
+        
+        const dayNumber = document.createElement('span');
+        dayNumber.textContent = day;
+        dayCell.appendChild(dayNumber);
 
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
         if (monthlyData[dateStr]) {
-            dayCell.classList.add('active-day');
-            // 툴팁으로 횟수 보여주기 (보너스 기능!)
-            dayCell.title = `${monthlyData[dateStr]}회 집중!`;
+            if (monthlyData[dateStr].count > 0) {
+                dayCell.classList.add('active-day');
+                dayCell.title = `${monthlyData[dateStr].count}회 집중!`;
+            }
+            if (monthlyData[dateStr].emotion) {
+                const emotionSpan = document.createElement('span');
+                emotionSpan.className = 'calendar-emotion';
+                emotionSpan.textContent = { happy: '😊', neutral: '😐', sad: '😩' }[monthlyData[dateStr].emotion];
+                dayCell.appendChild(emotionSpan);
+            }
         }
         calendarGrid.appendChild(dayCell);
     }
-}
-
-prevMonthBtn.addEventListener('click', () => {
-    currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
-    generateCalendar(currentDisplayDate);
-});
-
-nextMonthBtn.addEventListener('click', () => {
-    currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
-    generateCalendar(currentDisplayDate);
-});
+} // <<-- 진짜 함수는 여기서 끝나야 해!
+                
+      
 
 function generateStatsChart() {
     const stats = JSON.parse(localStorage.getItem('pomodoroStats')) || [];
@@ -488,13 +510,34 @@ function generateStatsChart() {
 }
 function saveJournalEntry() {
     const entryText = journalEntryInput.value.trim();
-    if (!entryText) { alert("일기 내용을 입력해주세요."); return; }
+    if (!entryText && !selectedEmotion) { // 글과 감정 둘 다 없으면 저장 안 함
+        alert("일기 내용이나 오늘의 기분을 선택해주세요.");
+        return;
+    }
+
     const journalEntries = JSON.parse(localStorage.getItem('pomodoroJournal')) || [];
     const today = new Date().toISOString().slice(0, 10);
-    journalEntries.push({ date: today, text: entryText });
+
+    // 오늘 날짜의 기록이 이미 있는지 확인하고, 있으면 업데이트, 없으면 새로 추가
+    const todayEntryIndex = journalEntries.findIndex(entry => entry.date === today);
+
+    if (todayEntryIndex > -1) {
+        // 기존 기록 업데이트
+        journalEntries[todayEntryIndex].text = entryText;
+        journalEntries[todayEntryIndex].emotion = selectedEmotion;
+    } else {
+        // 새 기록 추가
+        journalEntries.push({ date: today, text: entryText, emotion: selectedEmotion });
+    }
+    
     localStorage.setItem('pomodoroJournal', JSON.stringify(journalEntries));
-    journalEntryInput.value = ''; alert("일기가 저장되었습니다!");
+
+    journalEntryInput.value = '';
+    selectedEmotion = null; // 선택 초기화
+    emotionButtons.forEach(btn => btn.classList.remove('selected'));
+    alert("일기가 저장되었습니다!");
     displayPastEntries();
+    generateCalendar(currentDisplayDate); // 달력 새로고침
 }
 function displayPastEntries() {
     const journalEntries = JSON.parse(localStorage.getItem('pomodoroJournal')) || [];
@@ -504,8 +547,23 @@ function displayPastEntries() {
         const entryDiv = document.createElement('div'); entryDiv.className = 'journal-entry';
         const dateDiv = document.createElement('div'); dateDiv.className = 'date'; dateDiv.textContent = entry.date;
         const textP = document.createElement('p'); textP.className = 'text'; textP.textContent = entry.text;
+        const emotionMap = { happy: '😊', neutral: '😐', sad: '😩' };
+        if (entry.emotion) {
+            dateDiv.textContent += ` ${emotionMap[entry.emotion]}`; // 날짜 옆에 이모지 추가
+        }
         entryDiv.appendChild(dateDiv); entryDiv.appendChild(textP);
         pastEntriesContainer.appendChild(entryDiv);
     });
 }
+// ⭐⭐ 새로운 감정 버튼 이벤트 리스너 추가! ⭐⭐
+emotionButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        // 모든 버튼에서 'selected' 클래스 제거
+        emotionButtons.forEach(btn => btn.classList.remove('selected'));
+        // 클릭된 버튼에만 'selected' 클래스 추가
+        button.classList.add('selected');
+        // 선택된 감정 저장
+        selectedEmotion = button.dataset.emotion;
+    });
+});
 saveJournalBtn.addEventListener('click', saveJournalEntry);
