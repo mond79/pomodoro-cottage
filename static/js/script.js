@@ -36,6 +36,9 @@ const musicLibrary = [
 ];
 // ⭐⭐ 여기까지! ⭐⭐
 
+// ==========================================================
+//                 페이지 로드 시 초기화
+// ==========================================================
 document.addEventListener('DOMContentLoaded', () => {
     // === 탭 기능 초기화 (가장 먼저!) ===
     initializeTabs();
@@ -51,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInitialSoundMixer();
     updateGoalProgress();
     updateQuestProgress();
+    initializeNotifications(); // ⭐ 추가: 알림 기능 초기화
 });
 
 // ==========================================================
@@ -150,6 +154,9 @@ const nextMonthBtn = document.getElementById('next-month-btn');
 const emotionButtons = document.querySelectorAll('.emotion-btn'); 
 let selectedEmotion = null; // ⭐ 추가: 선택된 감정을 저장할 변수
 
+// 알림 기능
+const notificationToggle = document.getElementById('notification-toggle'); 
+
 // ==========================================================
 //                 초기화 헬퍼 함수들
 // ==========================================================
@@ -185,6 +192,46 @@ function setInitialSoundMixer() {
 }
 
 // ==========================================================
+//                     알림 기능 (⭐ 새로운 섹션!)
+// ==========================================================
+function initializeNotifications() {
+    // 저장된 알림 설정을 불러와 토글 스위치에 반영
+    const isNotiEnabled = localStorage.getItem('notificationsEnabled') === 'true';
+    notificationToggle.checked = isNotiEnabled;
+
+    // 토글 스위치 이벤트 리스너
+    notificationToggle.addEventListener('change', () => {
+        if (notificationToggle.checked) {
+            // 알림을 켜려고 할 때, 권한 요청
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    localStorage.setItem('notificationsEnabled', 'true');
+                    showNotification("✅ 알림이 설정되었습니다!", "집중과 휴식 시간을 알려드릴게요.");
+                } else {
+                    // 권한을 거부하면 토글을 다시 끔
+                    notificationToggle.checked = false;
+                    localStorage.setItem('notificationsEnabled', 'false');
+                }
+            });
+        } else {
+            // 알림을 끌 때
+            localStorage.setItem('notificationsEnabled', 'false');
+        }
+    });
+}
+
+function showNotification(title, body) {
+    // 사용자가 알림을 켜뒀고, 브라우저 권한도 허용된 경우에만 알림 표시
+    const isNotiEnabled = localStorage.getItem('notificationsEnabled') === 'true';
+    if (isNotiEnabled && Notification.permission === "granted") {
+        new Notification(title, {
+            body: body,
+            icon: '/static/icons/icon-192x192.png' // 앱 아이콘을 함께 표시!
+        });
+    }
+}
+
+// ==========================================================
 //                     뽀모도로 타이머 기능
 // ==========================================================
 function loadCustomTimes() {
@@ -209,16 +256,40 @@ function updateTimerDisplay() {
 }
 function startTimer() {
     if (isPaused) {
-        isPaused = false; startBtn.disabled = true; pauseBtn.disabled = false;
+        isPaused = false;
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+
+        // ⭐ 1. 타이머가 '시작'될 때 알림을 보냅니다.
+        if (currentPhase === 'pomodoro') {
+            showNotification("⏰ 집중 시작!", `${POMODORO_DURATION / 60}분간 몰입해보세요!`);
+        } else {
+            showNotification("🍵 휴식 시간!", "잠시 눈을 감고 숨을 돌려보세요.");
+        }
+        
         timer = setInterval(() => {
-            if (timeLeft > 0) { timeLeft--; updateTimerDisplay(); saveTimerState(); }
-            else {
-                clearInterval(timer); isPaused = true; bellSound.play();
-                startBtn.disabled = false; pauseBtn.disabled = true;
+            if (timeLeft > 0) {
+                timeLeft--;
+                updateTimerDisplay();
+                saveTimerState();
+            } else {
+                clearInterval(timer);
+                isPaused = true;
+                bellSound.play();
+                startBtn.disabled = false;
+                pauseBtn.disabled = true;
+                
+                // ⭐ 2. 타이머가 '종료'될 때, 다음 단계로 넘어가면서 알림을 보냅니다.
                 if (currentPhase === 'pomodoro') {
+                    // 집중이 끝났으니, 기록하고 -> 휴식을 시작하고 -> 알림을 보냅니다.
                     recordFocusSession(POMODORO_DURATION / 60);
-                    alert(`🔔 집중 시간 종료! 대단해요!`);
-                } else { alert(`🔔 ${getPhaseKoreanName(currentPhase)} 종료!`); }
+                    setTimer(SHORT_BREAK_DURATION, 'short-break'); // 다음 페이즈: 짧은 휴식
+                    showNotification("🔔 집중 완료!", "수고했어요! 휴식을 시작합니다.");
+                } else {
+                    // 휴식이 끝났으니, -> 집중을 시작하고 -> 알림을 보냅니다.
+                    setTimer(POMODORO_DURATION, 'pomodoro'); // 다음 페이즈: 집중 시간
+                    showNotification("🔔 휴식 종료!", "다시 집중해볼까요?");
+                }
             }
         }, 1000);
     }
@@ -416,6 +487,13 @@ function updateQuestProgress() {
 
     // 보상 메시지 표시/숨김
     if (dailyQuestData.count >= DAILY_QUEST_GOAL) {
+        // ⭐⭐ 이 부분 수정! ⭐⭐
+        // 이전에 퀘스트를 완료하지 않은 상태에서, 방금 막 완료한 경우에만 알림을 보냄
+        const questCompletedToday = localStorage.getItem('questCompletedDate') === today;
+        if (!questCompletedToday) {
+            showNotification("🎉 오늘의 퀘스트 완료!", "정말 대단해요! 보상 쿠키를 확인하세요! 🍪");
+            localStorage.setItem('questCompletedDate', today); // 오늘 퀘스트 완료했다고 기록
+        }
         rewardMessage.classList.remove('hidden');
     } else {
         rewardMessage.classList.add('hidden');
