@@ -1,5 +1,6 @@
 import os
 import flask
+import json # ⭐ 추가!
 from flask import Flask, render_template, send_from_directory, session, redirect, url_for, request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -13,8 +14,8 @@ app = Flask(__name__)
 # 이건 서버를 껐다 켤 때마다 바뀌어도 상관없어.
 app.secret_key = os.urandom(24)
 
-# 우리가 만든 구글 사업자 등록증 파일의 위치
-CLIENT_SECRETS_FILE = 'client_secret.json'
+# 이제 파일 이름 대신, 환경 변수의 'Key'를 사용
+# CLIENT_SECRETS_FILE = 'client_secret.json' <-- 이 줄은 이제 필요 없어!
 # 우리가 구글에게 요청할 업무 범위 (캘린더를 읽고 쓸 수 있는 권한)
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 
@@ -55,28 +56,38 @@ def service_worker():
 # 1. "구글 캘린더 연동하기" 버튼을 누르면, 여기가 시작이야!
 @app.route('/authorize')
 def authorize():
-    # 구글 플로우(Flow) 객체 생성
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, scopes=SCOPES)
-    # 우리 앱의 어떤 주소로 다시 돌아와야 하는지 알려줌
+    # ⭐⭐ 여기부터 수정! ⭐⭐
+    # 환경 변수에서 JSON 내용을 문자열로 가져옴
+    client_config_json = os.environ.get('GOOGLE_CLIENT_SECRET_JSON')
+    if not client_config_json:
+        return "GOOGLE_CLIENT_SECRET_JSON 환경 변수가 설정되지 않았습니다.", 500
+    
+    # 문자열을 파이썬 딕셔너리로 변환
+    client_config = json.loads(client_config_json)
+
+    # 이제 파일이 아니라, 설정 객체(딕셔너리)로부터 Flow를 생성
+    flow = Flow.from_client_config(
+        client_config, scopes=SCOPES)
+    # ⭐⭐ 여기까지 수정! ⭐⭐
+
     flow.redirect_uri = url_for('oauth2callback', _external=True)
-    # 구글 로그인 페이지로 가는 URL을 생성
     authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true')
-    # 나중에 다시 돌아왔을 때, 위조된 요청이 아닌지 확인하기 위해 state 저장
+        access_type='offline', include_granted_scopes='true')
     session['state'] = state
-    # 생성된 구글 로그인 페이지로 사용자를 보냄
     return redirect(authorization_url)
 
 
 # 2. 구글에서 신분증 검사를 마치고 돌아오는 주소
 @app.route('/oauth2callback')
 def oauth2callback():
-    # 위조 방지 체크
     state = session['state']
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
+    
+    # ⭐⭐ 여기도 똑같이 수정! ⭐⭐
+    client_config_json = os.environ.get('GOOGLE_CLIENT_SECRET_JSON')
+    client_config = json.loads(client_config_json)
+    flow = Flow.from_client_config(
+        client_config, scopes=SCOPES, state=state)
+    # ⭐⭐ 여기까지 수정! ⭐⭐
     flow.redirect_uri = url_for('oauth2callback', _external=True)
 
     # 구글이 보내준 '임시 출입증(인증 코드)'을 받음
