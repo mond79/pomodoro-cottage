@@ -64,12 +64,6 @@ function initializeTabs() {
         button.addEventListener('click', () => {
             const tabName = button.dataset.tab;
 
-            // --- ▼▼▼ 디버깅 코드 추가! ▼▼▼ ---
-            console.log("버튼 클릭됨! 찾아야 할 방 이름:", tabName); 
-            const contentToShow = document.getElementById(`tab-${tabName}`);
-            console.log("찾은 방:", contentToShow);
-            // --- ▲▲▲ 여기까지! ▲▲▲ ---
-
             // 모든 버튼과 컨텐츠에서 'active' 클래스 제거
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active'));
