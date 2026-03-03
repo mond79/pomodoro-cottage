@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot } from 'lucide-react';
+import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot, BarChart3 } from 'lucide-react';
 import { DEFAULT_QUOTES } from '../constants';
 
 export default function Header({
@@ -8,7 +8,8 @@ export default function Header({
     setShowSettingsModal, setShowQuoteModal,
     streakData, rankTitle, todaysQuote, aiGreeting,
     currentMood, setCurrentMood, MOODS,
-    isGoogleLoggedIn, onGoogleLogin, onGoogleLogout
+    isGoogleLoggedIn, onGoogleLogin, onGoogleLogout,
+    onShowHeatmap
 }) {
     const [showMoodMenu, setShowMoodMenu] = useState(false);
     const [showBotMessage, setShowBotMessage] = useState(true);
@@ -62,6 +63,13 @@ export default function Header({
             </div>
 
             <div className="flex items-center gap-3">
+                <button
+                    onClick={onShowHeatmap}
+                    aria-label="성취 기록 보기"
+                    className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all text-emerald-500 dark:text-emerald-400 hover:text-emerald-600"
+                >
+                    <BarChart3 className="w-5 h-5" />
+                </button>
                 <button
                     onClick={() => setShowSettingsModal(true)}
                     aria-label="설정 및 타임캡슐"

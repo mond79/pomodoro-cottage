@@ -5,6 +5,7 @@ import DDaySection from './components/DDaySection';
 import CalendarView from './components/CalendarView';
 import PomodoroTimer from './components/PomodoroTimer';
 import TodoSection from './components/TodoSection';
+import PomoHeatmap from './components/PomoHeatmap';
 import Modals from './components/Modals';
 
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -30,6 +31,7 @@ export default function App() {
   const [showDDayModal, setShowDDayModal] = useState(false);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showHeatmapModal, setShowHeatmapModal] = useState(false);
 
   // D-Day & Add Event
   const [editingDDayIdx, setEditingDDayIdx] = useState(null);
@@ -464,6 +466,7 @@ export default function App() {
             isGoogleLoggedIn={isGoogleLoggedIn}
             onGoogleLogin={redirectToGoogleLogin}
             onGoogleLogout={redirectToLogout}
+            onShowHeatmap={() => setShowHeatmapModal(true)}
           />
 
           <Dashboard
@@ -503,6 +506,23 @@ export default function App() {
               />
             </div>
           </main>
+
+          {/* 히트맵 모달 */}
+          {showHeatmapModal && (
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-[fadeIn_200ms_ease-out]"
+              style={{ overscrollBehavior: 'contain' }}
+              onClick={() => setShowHeatmapModal(false)}
+            >
+              <div
+                className="max-w-4xl w-full overflow-hidden animate-[scaleIn_250ms_ease-out]"
+                style={{ willChange: 'transform, opacity' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <PomoHeatmap pomoHistory={pomoHistory} currentMood={currentMood} onClose={() => setShowHeatmapModal(false)} />
+              </div>
+            </div>
+          )}
 
           <Modals
             showSettingsModal={showSettingsModal} setShowSettingsModal={setShowSettingsModal} settingsMessage={settingsMessage} handleBackup={handleBackup} handleRestore={handleRestore} showConfirmReset={showConfirmReset} setShowConfirmReset={setShowConfirmReset} handleResetAll={handleResetAll}
