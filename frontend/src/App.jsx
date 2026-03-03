@@ -10,7 +10,9 @@ import Modals from './components/Modals';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS } from './constants';
 import { formatYMD, parseYMD, generateId, formatDDay } from './utils/dateHelpers';
-import { fetchStatus, addCalendarEvent, redirectToGoogleLogin, redirectToLogout } from './utils/api';
+import { fetchStatus, addCalendarEvent, redirectToGoogleLogin, redirectToLogout, fetchTasks, addGoogleTask } from './utils/api';
+import { loadStoredPlaylist, saveTrackToDB, deleteTrackFromDB } from './utils/playlistStore';
+import { playNotificationSound } from './utils/audioEffects';
 
 export default function App() {
   // --- States ---
@@ -83,9 +85,37 @@ export default function App() {
 
   // --- Effects ---
 
-  // 앱 시작 시 Flask 백엔드에서 구글 로그인 상태 확인
+  // 앱 시작 시 Flask 백엔드에서 구글 로그인 상태 확인 및 로컬 플레이리스트/할 일 로드
   useEffect(() => {
-    fetchStatus().then(data => setIsGoogleLoggedIn(data.is_logged_in));
+    fetchStatus().then(data => {
+      setIsGoogleLoggedIn(data.is_logged_in);
+
+      // 구글 로그인 상태라면 할 일 목록 가져오기
+      if (data.is_logged_in) {
+        fetchTasks().then(googleTasks => {
+          if (googleTasks && googleTasks.length > 0) {
+            setTodos(prev => {
+              // 중복 방지 (텍스트 기준)
+              const existingTexts = new Set(prev.map(t => t.text));
+              const newTasksFromGoogle = googleTasks.filter(gt => !existingTexts.has(gt.text));
+              return [...prev, ...newTasksFromGoogle];
+            });
+          }
+        });
+      }
+    });
+
+    // IndexedDB에서 저장된 플레이리스트 로드
+    loadStoredPlaylist().then(stored => {
+      if (stored && stored.length > 0) {
+        const withUrls = stored.map(track => ({
+          ...track,
+          url: URL.createObjectURL(track.blob)
+        }));
+        setPlaylist(withUrls);
+        setCurrentTrackIdx(0);
+      }
+    });
   }, []);
 
   // 뽀모도로 타이머 로직
@@ -107,9 +137,15 @@ export default function App() {
           });
         }
 
+        // 알림음 재생 🔔
+        playNotificationSound();
+
         setTimerMode('rest');
         setPomoTime(10 * 60);
       } else {
+        // 알림음 재생 🔔
+        playNotificationSound();
+
         setTimerMode('work');
         setPomoTime(pomoDuration * 60);
         setIsPomoActive(false);
@@ -125,13 +161,18 @@ export default function App() {
     setIsPomoActive(false);
   };
 
-  const handleAudioUpload = (e) => {
+  const handleAudioUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
-      const newTracks = files.map(file => ({
-        name: file.name,
-        url: URL.createObjectURL(file)
-      }));
+      const newTracks = [];
+      for (const file of files) {
+        const id = await saveTrackToDB(file.name, file);
+        newTracks.push({
+          id,
+          name: file.name,
+          url: URL.createObjectURL(file)
+        });
+      }
 
       const updatedPlaylist = [...playlist, ...newTracks];
       setPlaylist(updatedPlaylist);
@@ -158,8 +199,15 @@ export default function App() {
     }
   };
 
-  const removeTrack = (e, index) => {
+  const removeTrack = async (e, index) => {
     e.stopPropagation();
+    const trackToRemove = playlist[index];
+
+    // IndexedDB에서 삭제
+    if (trackToRemove.id) {
+      await deleteTrackFromDB(trackToRemove.id);
+    }
+
     const updated = playlist.filter((_, i) => i !== index);
     setPlaylist(updated);
 
@@ -291,11 +339,20 @@ export default function App() {
     }));
   };
 
-  const addTodo = (e) => {
+  const addTodo = async (e) => {
     e.preventDefault();
     if (!newTodo.trim()) return;
-    setTodos(prev => [...prev, { id: generateId(), text: newTodo.trim(), completed: false }]);
+    const todoToAdd = { id: generateId(), text: newTodo.trim(), completed: false };
+    setTodos(prev => [...prev, todoToAdd]);
     setNewTodo('');
+
+    // 구글 로그인 상태라면 구글 Tasks에도 추가
+    if (isGoogleLoggedIn) {
+      const res = await addGoogleTask(newTodo.trim());
+      if (res.success) {
+        console.log('✅ Google Tasks에 할 일 추가 성공!');
+      }
+    }
   };
   const deleteTodo = (id) => setTodos(prev => prev.filter(t => t.id !== id));
 

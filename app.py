@@ -18,7 +18,7 @@ app = Flask(__name__)
 app.secret_key = 'mond_cottage_development_key'
 
 # 세션 쿠키 설정 (크로스 오리진 및 배포 환경 대응)
-is_prod = 'onrender.com' in os.environ.get('FRONTEND_URL', '') or os.environ.get('PORT')
+is_prod = os.environ.get('RENDER') == 'true' or 'onrender.com' in os.environ.get('FRONTEND_URL', '')
 app.config.update(
     SESSION_COOKIE_SAMESITE='Lax',
     SESSION_COOKIE_HTTPONLY=True,
@@ -36,7 +36,10 @@ CORS(app, supports_credentials=True, origins=[
     "https://mond-cottage.onrender.com"
 ])
 
-SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+SCOPES = [
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/tasks'
+]
 AMBIENT_DIR = os.path.join(app.root_path, 'static', 'sounds', 'ambient')
 
 # React 프론트엔드 URL (OAuth 콜백 후 리디렉션용)
@@ -174,16 +177,91 @@ def oauth2callback():
         'scopes': credentials.scopes
     }
 
-    # 인증 완료 후 다시 메인 화면으로 돌아감 (배포 환경 대응)
-    return redirect('/')
+    # 인증 완료 후 다시 메인 화면으로 돌아감
+    if is_prod:
+        target_url = '/'
+    else:
+        target_url = 'http://127.0.0.1:5173'
+        
+    print(f"DEBUG: Redirecting definitively to {target_url} (is_prod was {is_prod})")
+    return redirect(target_url)
 
-
-# 3. 로그아웃 → React 프론트엔드로 리디렉션
+# 3. 로그아웃 → 프론트엔드로 리디렉션
 @app.route('/api/logout')
 def logout():
     if 'credentials' in session:
         session.pop('credentials')
-    return redirect('/')
+    
+    if is_prod:
+        target_url = '/'
+    else:
+        target_url = 'http://127.0.0.1:5173'
+        
+    return redirect(target_url)
+
+# --- Google Tasks API 연동 ---
+
+def get_credentials():
+    if 'credentials' not in session:
+        return None
+    return Credentials(**session['credentials'])
+
+@app.route('/api/tasks')
+def get_tasks():
+    creds = get_credentials()
+    if not creds:
+        return jsonify([])
+    
+    try:
+        service = build('tasks', 'v1', credentials=creds)
+        
+        # 기본 할 일 목록(My Tasks) 가져오기
+        tasklists = service.tasklists().list().execute()
+        if not tasklists.get('items'):
+            return jsonify([])
+            
+        first_list_id = tasklists['items'][0]['id']
+        
+        tasks_result = service.tasks().list(tasklist=first_list_id).execute()
+        tasks = tasks_result.get('items', [])
+        
+        # 필요한 정보만 가공해서 반환
+        return jsonify([{
+            'id': t['id'],
+            'text': t['title'],
+            'completed': t['status'] == 'completed',
+            'source': 'google'
+        } for t in tasks])
+    except Exception as e:
+        print(f"DEBUG: Tasks fetch failed: {str(e)}")
+        return jsonify([])
+
+@app.route('/api/tasks/add', methods=['POST'])
+def add_task():
+    creds = get_credentials()
+    if not creds:
+        return jsonify({'success': False, 'error': 'Not logged in'})
+    
+    data = request.json
+    title = data.get('title')
+    
+    try:
+        service = build('tasks', 'v1', credentials=creds)
+        
+        tasklists = service.tasklists().list().execute()
+        if not tasklists.get('items'):
+            return jsonify({'success': False, 'error': 'No tasklist found'})
+            
+        first_list_id = tasklists['items'][0]['id']
+        
+        task = {
+            'title': title
+        }
+        result = service.tasks().insert(tasklist=first_list_id, body=task).execute()
+        return jsonify({'success': True, 'id': result['id']})
+    except Exception as e:
+        print(f"DEBUG: Task add failed: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
 
 
 # 4. 뽀모도로 완료 시 구글 캘린더에 이벤트 생성
@@ -216,35 +294,37 @@ def add_event():
 #                    정적 파일 및 SPA 라우팅
 # ==========================================================
 
-# API 이외의 모든 경로는 React의 index.html을 서빙 (SPA 대응)
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    if path.startswith('api/') or path == 'authorize' or path == 'oauth2callback':
-        return flask.abort(404)
+# 1. 정적 파일(JS, CSS, 이미지 등) 서빙
+@app.route('/<path:filename>')
+def serve_static(filename):
+    if os.path.exists(os.path.join(app.static_folder, filename)):
+        return send_from_directory(app.static_folder, filename)
+    flask.abort(404)
+
+# 2. SPA 대응: 모든 404 에러 시 index.html 반환 (API 제외)
+@app.errorhandler(404)
+def not_found(e):
+    # API 요청이나 Auth 경로는 에러 처리를 그대로 진행
+    if request.path.startswith('/api/') or request.path == '/authorize' or request.path == '/oauth2callback':
+        return e
     
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    else:
-        # 빌드된 파일이 없으면 index.html 반환 (React Router 연동용)
-        index_path = os.path.join(app.static_folder, 'index.html')
-        abs_static = os.path.abspath(app.static_folder)
-        abs_index = os.path.abspath(index_path)
-        
-        if os.path.exists(index_path):
-            return send_from_directory(app.static_folder, 'index.html')
-        
-        # 디버깅 정보를 HTML로 예쁘게 출력
-        error_msg = f"""
-        <h2>React 빌드 파일(index.html)을 찾을 수 없습니다.</h2>
-        <p><b>찾으려는 절대 경로:</b> {abs_index}</p>
-        <p><b>정적 폴더 경로:</b> {abs_static}</p>
-        <p><b>현재 서버 위치:</b> {os.path.abspath(app.root_path)}</p>
-        <p><b>현재 작업 디렉토리:</b> {os.getcwd()}</p>
-        <hr>
-        <p>Render 빌드 로그에서 'frontend/dist' 폴더가 정상적으로 생성되었는지 확인해주세요.</p>
-        """
-        return error_msg, 404
+    # 그 외의 경우 React의 index.html 반환 시도
+    index_path = os.path.join(app.static_folder, 'index.html')
+    if os.path.exists(index_path):
+        return send_from_directory(app.static_folder, 'index.html')
+    
+    # 빌드 파일이 없을 경우 디버깅 메시지 출력
+    abs_static = os.path.abspath(app.static_folder)
+    abs_index = os.path.abspath(index_path)
+    error_msg = f"""
+    <h2>React 빌드 파일(index.html)을 찾을 수 없습니다.</h2>
+    <p><b>현재 요청 경로:</b> {request.path}</p>
+    <p><b>찾으려는 절대 경로:</b> {abs_index}</p>
+    <p><b>정적 폴더 경로:</b> {abs_static}</p>
+    <hr>
+    <p>로컬 개발 시에는 <b>http://127.0.0.1:5173</b> 사이트로 접속해주세요!</p>
+    """
+    return error_msg, 404
 
 # ==========================================================
 #                    서버 실행
@@ -254,4 +334,5 @@ if __name__ == '__main__':
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     # 배포 환경에서는 Render가 제공하는 PORT 번호를 사용
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # 로컬 개발 시에는 debug=True로 자동 재로딩 활성화
+    app.run(host='0.0.0.0', port=port, debug=True)

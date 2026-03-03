@@ -74,3 +74,36 @@ export async function fetchAmbientSounds() {
 export function getAudioUrl(filename) {
     return `${API_BASE}/api/audio/${encodeURIComponent(filename)}`;
 }
+
+/**
+ * Google Tasks 목록 가져오기
+ */
+export async function fetchTasks() {
+    try {
+        const res = await fetch(`${API_BASE}/api/tasks`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Google Tasks 가져오기 실패');
+        return await res.json();
+    } catch (err) {
+        console.error('Google Tasks fetch failed:', err.message);
+        return [];
+    }
+}
+
+/**
+ * Google Tasks 할 일 추가하기
+ */
+export async function addGoogleTask(title) {
+    try {
+        const res = await fetch(`${API_BASE}/api/tasks/add`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title }),
+        });
+        if (!res.ok) throw new Error('할 일 추가 실패');
+        return await res.json();
+    } catch (err) {
+        console.error('Google Tasks add failed:', err.message);
+        return { success: false, error: err.message };
+    }
+}
