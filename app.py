@@ -180,9 +180,24 @@ def serve(path):
         return send_from_directory(app.static_folder, path)
     else:
         # 빌드된 파일이 없으면 index.html 반환 (React Router 연동용)
-        if os.path.exists(os.path.join(app.static_folder, 'index.html')):
+        index_path = os.path.join(app.static_folder, 'index.html')
+        abs_static = os.path.abspath(app.static_folder)
+        abs_index = os.path.abspath(index_path)
+        
+        if os.path.exists(index_path):
             return send_from_directory(app.static_folder, 'index.html')
-        return "React 빌드 파일(index.html)이 없습니다. 'cd frontend && npm run build'를 먼저 실행해주세요.", 404
+        
+        # 디버깅 정보를 HTML로 예쁘게 출력
+        error_msg = f"""
+        <h2>React 빌드 파일(index.html)을 찾을 수 없습니다.</h2>
+        <p><b>찾으려는 절대 경로:</b> {abs_index}</p>
+        <p><b>정적 폴더 경로:</b> {abs_static}</p>
+        <p><b>현재 서버 위치:</b> {os.path.abspath(app.root_path)}</p>
+        <p><b>현재 작업 디렉토리:</b> {os.getcwd()}</p>
+        <hr>
+        <p>Render 빌드 로그에서 'frontend/dist' 폴더가 정상적으로 생성되었는지 확인해주세요.</p>
+        """
+        return error_msg, 404
 
 # ==========================================================
 #                    서버 실행
