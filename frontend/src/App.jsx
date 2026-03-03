@@ -42,7 +42,8 @@ export default function App() {
   const [pomoHistory, setPomoHistory] = useLocalStorage('gplanner-pomos', {});
 
   const audioRef = useRef(null);
-  const [audioName, setAudioName] = useState('');
+  const [playlist, setPlaylist] = useState([]); // [{ name: string, url: string }]
+  const [currentTrackIdx, setCurrentTrackIdx] = useState(-1);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // Settings / Stats
@@ -125,20 +126,58 @@ export default function App() {
   };
 
   const handleAudioUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      if (audioRef.current) {
-        audioRef.current.src = url;
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      const newTracks = files.map(file => ({
+        name: file.name,
+        url: URL.createObjectURL(file)
+      }));
+
+      const updatedPlaylist = [...playlist, ...newTracks];
+      setPlaylist(updatedPlaylist);
+
+      // 처음 올리는 거라면 첫 곡으로 설정
+      if (currentTrackIdx === -1) {
+        setCurrentTrackIdx(0);
+        if (audioRef.current) {
+          audioRef.current.src = newTracks[0].url;
+          audioRef.current.load();
+        }
+      }
+    }
+  };
+
+  const playTrack = (index) => {
+    if (index < 0 || index >= playlist.length) return;
+    setCurrentTrackIdx(index);
+    if (audioRef.current) {
+      audioRef.current.src = playlist[index].url;
+      audioRef.current.load();
+      audioRef.current.play();
+      setIsPlayingAudio(true);
+    }
+  };
+
+  const removeTrack = (e, index) => {
+    e.stopPropagation();
+    const updated = playlist.filter((_, i) => i !== index);
+    setPlaylist(updated);
+
+    if (index === currentTrackIdx) {
+      setIsPlayingAudio(false);
+      if (audioRef.current) audioRef.current.pause();
+      setCurrentTrackIdx(updated.length > 0 ? 0 : -1);
+      if (updated.length > 0 && audioRef.current) {
+        audioRef.current.src = updated[0].url;
         audioRef.current.load();
       }
-      setAudioName(file.name);
-      setIsPlayingAudio(false);
+    } else if (index < currentTrackIdx) {
+      setCurrentTrackIdx(prev => prev - 1);
     }
   };
 
   const toggleAudio = () => {
-    if (!audioRef.current || !audioName) return;
+    if (!audioRef.current || currentTrackIdx === -1) return;
     if (isPlayingAudio) audioRef.current.pause();
     else audioRef.current.play();
     setIsPlayingAudio(!isPlayingAudio);
@@ -374,8 +413,8 @@ export default function App() {
               timerMode={timerMode} setTimerMode={setTimerMode} isPomoActive={isPomoActive} setIsPomoActive={setIsPomoActive}
               pomoTime={pomoTime} setPomoTime={setPomoTime} pomoDuration={pomoDuration} changePomoDuration={changePomoDuration}
               selectedDateTomatoes={selectedDateTomatoes} selectedDate={selectedDate}
-              audioName={audioName} isPlayingAudio={isPlayingAudio} toggleAudio={toggleAudio} handleAudioUpload={handleAudioUpload} audioRef={audioRef}
-              setAudioName={setAudioName} setIsPlayingAudio={setIsPlayingAudio}
+              playlist={playlist} currentTrackIdx={currentTrackIdx} isPlayingAudio={isPlayingAudio} toggleAudio={toggleAudio} handleAudioUpload={handleAudioUpload} audioRef={audioRef}
+              playTrack={playTrack} removeTrack={removeTrack} setPlaylist={setPlaylist} setIsPlayingAudio={setIsPlayingAudio} setCurrentTrackIdx={setCurrentTrackIdx}
             />
 
             <TodoSection

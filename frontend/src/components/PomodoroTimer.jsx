@@ -7,8 +7,8 @@ export default function PomodoroTimer({
     timerMode, setTimerMode, isPomoActive, setIsPomoActive,
     pomoTime, setPomoTime, pomoDuration, changePomoDuration,
     selectedDateTomatoes, selectedDate,
-    audioName, isPlayingAudio, toggleAudio, handleAudioUpload, audioRef,
-    setAudioName, setIsPlayingAudio
+    playlist, currentTrackIdx, isPlayingAudio, toggleAudio, handleAudioUpload, audioRef,
+    playTrack, removeTrack, setPlaylist, setIsPlayingAudio, setCurrentTrackIdx
 }) {
     // === 서버 환경음 (채널 1) ===
     const [serverSounds, setServerSounds] = useState([]);
@@ -227,7 +227,7 @@ export default function PomodoroTimer({
                             <Headphones className={`w-4 h-4 ${timerMode === 'work' ? 'text-purple-400' : 'text-teal-200'}`} />
                             <span className={`text-sm font-bold ${timerMode === 'work' ? 'text-slate-200' : 'text-white'}`}>🎶 로파이 BGM</span>
                         </div>
-                        {audioName && (
+                        {playlist.length > 0 && (
                             <button
                                 onClick={toggleAudio}
                                 className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer
@@ -245,15 +245,45 @@ export default function PomodoroTimer({
                     <label className={`relative flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl cursor-pointer transition-colors group overflow-hidden mb-3
             ${timerMode === 'work' ? 'border-slate-600 hover:border-purple-400' : 'border-teal-400/50 hover:border-teal-200'}
           `}>
-                        <input type="file" accept="audio/*" onChange={handleAudioUpload} className="hidden" />
+                        <input type="file" accept="audio/*" multiple onChange={handleAudioUpload} className="hidden" />
                         <div className={`flex items-center gap-2 truncate ${timerMode === 'work' ? 'text-slate-400 group-hover:text-purple-300' : 'text-teal-200 group-hover:text-white'}`}>
                             <Music className="w-4 h-4 flex-shrink-0" />
-                            <span className="text-xs font-medium truncate pl-1">{audioName || '클릭하여 로파이(mp3) 파일 올리기'}</span>
+                            <span className="text-xs font-medium truncate pl-1">
+                                {playlist.length > 0 ? `${playlist.length}개의 곡이 있음 (파일 더 추가하기)` : '클릭하여 로파이(mp3) 파일 올리기'}
+                            </span>
                         </div>
                     </label>
 
+                    {/* 플레이리스트 목록 */}
+                    {playlist.length > 0 && (
+                        <div className="flex flex-col gap-1.5 mb-4 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                            {playlist.map((track, idx) => (
+                                <div
+                                    key={idx}
+                                    onClick={() => playTrack(idx)}
+                                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-bold transition-all group/item cursor-pointer
+                                        ${idx === currentTrackIdx
+                                            ? (timerMode === 'work' ? 'bg-purple-500/30 text-purple-200 border border-purple-500/50' : 'bg-white/20 text-white')
+                                            : (timerMode === 'work' ? 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50' : 'bg-teal-700/30 text-teal-100 hover:bg-teal-600/30')}
+                                    `}
+                                >
+                                    <div className="flex items-center gap-2 truncate flex-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${idx === currentTrackIdx ? 'bg-purple-400 animate-pulse' : 'bg-transparent'}`} />
+                                        <span className="truncate">{track.name}</span>
+                                    </div>
+                                    <button
+                                        onClick={(e) => removeTrack(e, idx)}
+                                        className="p-1 opacity-0 group-hover/item:opacity-100 hover:text-red-400 transition-opacity"
+                                    >
+                                        <ResetIcon className="w-3 h-3 rotate-45" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {/* 로파이 볼륨 */}
-                    {audioName && (
+                    {playlist.length > 0 && (
                         <div className="flex items-center gap-2">
                             <span className={`text-[10px] font-bold ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>볼륨</span>
                             <input
@@ -267,7 +297,13 @@ export default function PomodoroTimer({
                             </span>
                         </div>
                     )}
-                    <audio ref={audioRef} loop />
+                    <audio
+                        ref={audioRef}
+                        onEnded={() => {
+                            const nextIdx = (currentTrackIdx + 1) % playlist.length;
+                            playTrack(nextIdx);
+                        }}
+                    />
                 </div>
 
             </div>

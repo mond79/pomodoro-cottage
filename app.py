@@ -75,12 +75,20 @@ def serve_audio(filename):
 @app.route('/authorize')
 def authorize():
     client_secret_file = os.path.join(app.root_path, 'client_secret.json')
-    if not os.path.exists(client_secret_file):
-        return jsonify({'error': 'client_secret.json 파일이 프로젝트 폴더에 존재하지 않습니다.'}), 500
+    if os.path.exists(client_secret_file):
+        flow = Flow.from_client_secrets_file(client_secret_file, scopes=SCOPES)
+    else:
+        # 파일이 없으면 환경 변수에서 읽기
+        client_config = json.loads(os.environ.get('GOOGLE_CLIENT_SECRET_JSON', '{}'))
+        if not client_config:
+            return jsonify({'error': 'client_secret.json 파일 혹은 GOOGLE_CLIENT_SECRET_JSON 환경 변수가 없습니다.'}), 500
+        flow = Flow.from_client_config(client_config, scopes=SCOPES)
 
-    flow = Flow.from_client_secrets_file(client_secret_file, scopes=SCOPES)
-    # 구글 콘솔에 등록된 127.0.0.1 주소로 강제 지정
-    flow.redirect_uri = "http://127.0.0.1:5000/oauth2callback"
+    # 리디렉션 URI를 현재 접속한 호스트에 맞춰 동적 생성
+    base_url = request.host_url.rstrip('/')
+    if "onrender.com" in base_url:
+        base_url = base_url.replace("http://", "https://")
+    flow.redirect_uri = f"{base_url}/oauth2callback"
 
     authorization_url, state = flow.authorization_url(
         access_type='offline', include_granted_scopes='true')
@@ -101,9 +109,19 @@ def oauth2callback():
     print(f"DEBUG: Callback Code Verifier from session: {'exists' if code_verifier else 'None'}")
     print(f"DEBUG: Callback State from request: {request.args.get('state')}")
 
+    # 클라이언트 비밀키 정보 가져오기
     client_secret_file = os.path.join(app.root_path, 'client_secret.json')
-    flow = Flow.from_client_secrets_file(client_secret_file, scopes=SCOPES, state=state)
-    flow.redirect_uri = "http://127.0.0.1:5000/oauth2callback"
+    if os.path.exists(client_secret_file):
+        flow = Flow.from_client_secrets_file(client_secret_file, scopes=SCOPES, state=state)
+    else:
+        client_config = json.loads(os.environ.get('GOOGLE_CLIENT_SECRET_JSON', '{}'))
+        flow = Flow.from_client_config(client_config, scopes=SCOPES, state=state)
+    
+    base_url = request.host_url.rstrip('/')
+    if "onrender.com" in base_url:
+        base_url = base_url.replace("http://", "https://")
+    flow.redirect_uri = f"{base_url}/oauth2callback"
+    
     # PKCE 보안을 위해 code_verifier 복원
     flow.code_verifier = code_verifier
 
@@ -127,8 +145,8 @@ def oauth2callback():
         'scopes': credentials.scopes
     }
 
-    # 인증 완료 후 React 프론트엔드로 돌아감
-    return redirect(FRONTEND_URL)
+    # 인증 완료 후 다시 메인 화면으로 돌아감 (배포 환경 대응)
+    return redirect('/')
 
 
 # 3. 로그아웃 → React 프론트엔드로 리디렉션
@@ -136,7 +154,7 @@ def oauth2callback():
 def logout():
     if 'credentials' in session:
         session.pop('credentials')
-    return redirect(FRONTEND_URL)
+    return redirect('/')
 
 
 # 4. 뽀모도로 완료 시 구글 캘린더에 이벤트 생성
