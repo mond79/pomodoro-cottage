@@ -13,15 +13,23 @@ app = Flask(__name__)
 # 세션 유실 방지를 위해 고정 키 사용
 app.secret_key = 'mond_cottage_development_key'
 
-# 개발 환경에서의 세션 쿠키 설정 (크로스 오리진 대응)
+# 세션 쿠키 설정 (크로스 오리진 및 배포 환경 대응)
 app.config.update(
     SESSION_COOKIE_SAMESITE='Lax',
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=False,  # 로컬(HTTP) 환경이므로 False
+    SESSION_COOKIE_SECURE=False,  # HTTPS 전용으로 하려면 배포 시 True 권장
 )
 
-# React 프론트엔드(5173)에서의 요청을 허용 (쿠키/세션 전송 포함)
-CORS(app, supports_credentials=True, origins=["http://localhost:5173", "http://127.0.0.1:5173"])
+# React 빌드 폴더 경로 설정 (배포 시 frontend/dist 서빙)
+dist_folder = os.path.join(app.root_path, 'frontend', 'dist')
+app.static_folder = dist_folder
+
+# React 프론트엔드에서의 요청을 허용 (쿠키/세션 전송 포함)
+CORS(app, supports_credentials=True, origins=[
+    "http://localhost:5173", 
+    "http://127.0.0.1:5173",
+    "https://mond-cottage.onrender.com"
+])
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 AMBIENT_DIR = os.path.join(app.root_path, 'static', 'sounds', 'ambient')
@@ -158,9 +166,30 @@ def add_event():
 
 
 # ==========================================================
+#                    정적 파일 및 SPA 라우팅
+# ==========================================================
+
+# API 이외의 모든 경로는 React의 index.html을 서빙 (SPA 대응)
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path.startswith('api/') or path == 'authorize' or path == 'oauth2callback':
+        return flask.abort(404)
+    
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    else:
+        # 빌드된 파일이 없으면 index.html 반환 (React Router 연동용)
+        if os.path.exists(os.path.join(app.static_folder, 'index.html')):
+            return send_from_directory(app.static_folder, 'index.html')
+        return "React 빌드 파일(index.html)이 없습니다. 'cd frontend && npm run build'를 먼저 실행해주세요.", 404
+
+# ==========================================================
 #                    서버 실행
 # ==========================================================
 
 if __name__ == '__main__':
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # 배포 환경에서는 Render가 제공하는 PORT 번호를 사용
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
