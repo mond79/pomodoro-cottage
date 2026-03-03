@@ -4,6 +4,7 @@ import { formatYMD } from '../utils/dateHelpers';
 import { fetchAmbientSounds, getAudioUrl } from '../utils/api';
 
 export default function PomodoroTimer({
+    themeBg, currentMood, defaultSound,
     timerMode, setTimerMode, isPomoActive, setIsPomoActive,
     pomoTime, setPomoTime, pomoDuration, changePomoDuration,
     selectedDateTomatoes, selectedDate,
@@ -15,6 +16,7 @@ export default function PomodoroTimer({
     const [activeAmbient, setActiveAmbient] = useState(null);
     const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
     const [ambientVolume, setAmbientVolume] = useState(0.5);
+    const [userSelectedAmbient, setUserSelectedAmbient] = useState(false); // 사용자가 직접 고른 경우 우선
     const ambientRef = useRef(null);
 
     // === 로파이 BGM (채널 2) — 기존 audioRef 사용 ===
@@ -39,8 +41,10 @@ export default function PomodoroTimer({
         if (audioRef.current) audioRef.current.volume = lofiVolume;
     }, [lofiVolume]);
 
-    // 서버 환경음 선택
+    // 서버 환경음 직접 선택 (사용자 개입)
     const selectAmbient = (filename) => {
+        setUserSelectedAmbient(true); // 수동 선택 마킹
+
         if (activeAmbient === filename) {
             // 같은 거 다시 누르면 재생/정지 토글
             toggleAmbient();
@@ -56,6 +60,27 @@ export default function PomodoroTimer({
         setIsAmbientPlaying(true);
     };
 
+    // 💡 테마(currentMood) 변경 시 환경음 자동 교체
+    useEffect(() => {
+        if (!defaultSound) return;
+
+        // 하지만 사용자가 방금 직접 소리를 골랐다면 덮어쓰지 않음
+        // 단, 기획 상 "테마를 다시 바꿀 때"는 예외를 풀고 새 테마 소리로 리셋시킴
+        setUserSelectedAmbient(false);
+
+        if (ambientRef.current && activeAmbient !== defaultSound) {
+            ambientRef.current.src = getAudioUrl(defaultSound);
+            ambientRef.current.load();
+            ambientRef.current.volume = ambientVolume;
+            // 만약 현재 "어떤 환경음이든 재생 중"이었거나 처음 들어왔을 때 자동으로 재생되게 하려면:
+            // (사용자 경험상 재생 중일 때만 새 테마 소리를 이어서 틀거나, 항상 기본으로 틀어주는 것도 좋음)
+            // 여기서는 항상 재생 상태로 켜주도록 강제하여 "오두막 입장" 느낌을 강화
+            ambientRef.current.play().catch(e => console.log('Auto-play prevented:', e));
+            setActiveAmbient(defaultSound);
+            setIsAmbientPlaying(true);
+        }
+    }, [currentMood, defaultSound]); // 테마가 바뀔 때만 발동
+
     const toggleAmbient = () => {
         if (!ambientRef.current || !activeAmbient) return;
         if (isAmbientPlaying) ambientRef.current.pause();
@@ -70,9 +95,7 @@ export default function PomodoroTimer({
     };
 
     return (
-        <div className={`p-6 md:p-8 rounded-[2.5rem] shadow-xl text-white relative overflow-hidden transition-colors duration-500
-      ${timerMode === 'work' ? 'bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black' : 'bg-gradient-to-br from-teal-500 to-cyan-600'}
-    `}>
+        <div className={`p-6 md:p-8 rounded-[2.5rem] shadow-2xl text-white relative overflow-hidden transition-colors duration-500 bg-gradient-to-br ${themeBg} backdrop-blur-md border border-white/10`}>
             <div className="absolute top-0 right-0 p-8 opacity-10">
                 {timerMode === 'work' ? <Timer className="w-32 h-32" /> : <Wind className="w-32 h-32" />}
             </div>

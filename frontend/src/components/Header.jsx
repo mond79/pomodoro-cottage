@@ -1,14 +1,25 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut } from 'lucide-react';
+import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot } from 'lucide-react';
 import { DEFAULT_QUOTES } from '../constants';
 
 export default function Header({
     isDarkMode, setIsDarkMode,
     searchQuery, setSearchQuery,
     setShowSettingsModal, setShowQuoteModal,
-    streakData, rankTitle, todaysQuote,
+    streakData, rankTitle, todaysQuote, aiGreeting,
+    currentMood, setCurrentMood, MOODS,
     isGoogleLoggedIn, onGoogleLogin, onGoogleLogout
 }) {
+    const [showMoodMenu, setShowMoodMenu] = useState(false);
+    const [showBotMessage, setShowBotMessage] = useState(true);
+
+    // 15초마다 명언과 AI 인사말 교차 노출
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setShowBotMessage(prev => !prev);
+        }, 15000); // 15초 간격
+        return () => clearInterval(interval);
+    }, []);
     return (
         <header className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
@@ -30,16 +41,23 @@ export default function Header({
                     </h1>
                 </div>
 
-                <div className="flex items-center gap-2 mt-2 text-slate-500 dark:text-slate-400 italic group">
-                    <Quote className="w-4 h-4 text-blue-400 opacity-50" />
-                    <p className="text-sm font-medium">{todaysQuote}</p>
-                    <button
-                        onClick={() => setShowQuoteModal(true)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md"
-                        aria-label="명언 편집"
-                    >
-                        <Edit2 className="w-3 h-3 text-slate-400" />
-                    </button>
+                <div className="mt-2 text-slate-500 dark:text-slate-400 italic group max-w-xl grid [grid-template-areas:'stack'] items-center">
+                    <div className={`[grid-area:stack] flex items-center gap-2 transition-all duration-500 w-full ${aiGreeting && showBotMessage ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
+                        <Bot className="w-5 h-5 text-indigo-500 animate-pulse flex-shrink-0" />
+                        <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400 leading-relaxed">{aiGreeting}</p>
+                    </div>
+
+                    <div className={`[grid-area:stack] flex items-center gap-2 transition-all duration-500 w-full ${!aiGreeting || !showBotMessage ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                        <Quote className="w-4 h-4 text-blue-400 opacity-50 flex-shrink-0" />
+                        <p className="text-sm font-medium leading-relaxed">{todaysQuote}</p>
+                        <button
+                            onClick={() => setShowQuoteModal(true)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md flex-shrink-0"
+                            aria-label="명언 편집"
+                        >
+                            <Edit2 className="w-3 h-3 text-slate-400" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -70,6 +88,32 @@ export default function Header({
                         <LogIn className="w-4 h-4" /> 구글 캘린더 연동
                     </button>
                 )}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowMoodMenu(!showMoodMenu)}
+                        aria-label="테마 변경"
+                        className="flex items-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all text-slate-700 dark:text-slate-300"
+                    >
+                        <Palette className="w-5 h-5 text-pink-500" />
+                        <span className="hidden lg:inline text-sm font-bold">{MOODS[currentMood]?.icon} {MOODS[currentMood]?.name}</span>
+                    </button>
+
+                    {showMoodMenu && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+                            {Object.entries(MOODS).map(([key, mood]) => (
+                                <button
+                                    key={key}
+                                    onClick={() => { setCurrentMood(key); setShowMoodMenu(false); }}
+                                    className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${currentMood === key ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-700 dark:text-slate-300'}`}
+                                >
+                                    <span className="text-xl">{mood.icon}</span>
+                                    {mood.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 <button
                     onClick={() => setIsDarkMode(!isDarkMode)}
                     aria-label="다크 모드 토글"

@@ -25,3 +25,10 @@ export const SUBJECT_COLORS = [
     { id: 'purple', value: 'bg-purple-400' },
     { id: 'pink', value: 'bg-pink-400' },
 ];
+
+export const MOODS = {
+    classic: { name: '클래식 오두막', icon: '🏡', bgImage: '/img/night.png', defaultSound: '한국 독서실.mp3', workBg: 'from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black', restBg: 'from-teal-500 to-cyan-600' },
+    rainy: { name: '비 오는 서재', icon: '🌧️', bgImage: '/img/rain.png', defaultSound: '비와 천둥.wav', workBg: 'from-blue-900 to-slate-800 dark:from-slate-900 dark:to-blue-900', restBg: 'from-blue-500 to-indigo-600' },
+    campfire: { name: '한밤의 캠프파이어', icon: '🔥', bgImage: '/img/fireplace.png', defaultSound: '벽난로.mp3', workBg: 'from-orange-900 to-red-900 dark:from-stone-900 dark:to-red-900', restBg: 'from-orange-600 to-red-700' },
+    forest: { name: '깊은 숲속', icon: '🌲', bgImage: '/img/forest.png', defaultSound: '숲에 새_1.mp3', workBg: 'from-emerald-900 to-green-900 dark:from-green-900 dark:to-black', restBg: 'from-emerald-500 to-teal-600' }
+};

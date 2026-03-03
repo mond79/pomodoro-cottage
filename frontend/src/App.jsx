@@ -8,11 +8,12 @@ import TodoSection from './components/TodoSection';
 import Modals from './components/Modals';
 
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS } from './constants';
+import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS, MOODS } from './constants';
 import { formatYMD, parseYMD, generateId, formatDDay } from './utils/dateHelpers';
 import { fetchStatus, addCalendarEvent, redirectToGoogleLogin, redirectToLogout, fetchTasks, addGoogleTask } from './utils/api';
 import { loadStoredPlaylist, saveTrackToDB, deleteTrackFromDB } from './utils/playlistStore';
 import { playNotificationSound } from './utils/audioEffects';
+import { generateCottageGreeting } from './utils/aiBot';
 
 export default function App() {
   // --- States ---
@@ -20,6 +21,9 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Cottage Moods Theme
+  const [currentMood, setCurrentMood] = useLocalStorage('gplanner-mood', 'classic');
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -425,6 +429,11 @@ export default function App() {
   const todaysQuote = useMemo(() => customQuotes[new Date().getDate() % customQuotes.length] || DEFAULT_QUOTES[0], [customQuotes]);
   const selectedDateTomatoes = useMemo(() => pomoHistory[formatYMD(selectedDate)] || 0, [pomoHistory, selectedDate]);
 
+  const currentMoodData = MOODS[currentMood] || MOODS.classic;
+  const aiGreeting = useMemo(() =>
+    generateCottageGreeting(streakData.streak, selectedDateTomatoes, currentMoodData, timerMode === 'work'),
+    [streakData.streak, selectedDateTomatoes, currentMoodData, timerMode]);
+
   const rankTitle = useMemo(() => {
     if (totalReadings >= 100) return '👑 공공의 지배자';
     if (totalReadings >= 50) return '🔥 열정적인 불꽃';
@@ -432,63 +441,76 @@ export default function App() {
     return '🌱 새싹 항해사';
   }, [totalReadings]);
 
+  const appBgClasses = timerMode === 'work' ? currentMoodData.workBg : currentMoodData.restBg;
+
   return (
-    <div className={`${isDarkMode ? 'dark' : ''} min-h-screen transition-colors duration-300 font-sans selection:bg-blue-200`}>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 md:p-8">
+    <div className={`${isDarkMode ? 'dark' : ''} min-h-screen font-sans selection:bg-blue-200`}>
+      <div
+        className="min-h-screen bg-cover bg-center bg-fixed transition-all duration-1000 relative flex flex-col"
+        style={{ backgroundImage: currentMoodData.bgImage ? `url('${currentMoodData.bgImage}')` : 'none' }}
+      >
+        {/* 그라데이션 오버레이 (약하게) */}
+        <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-1000 opacity-30 dark:opacity-50 ${appBgClasses} pointer-events-none`}></div>
 
-        <Header
-          isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}
-          searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-          setShowSettingsModal={setShowSettingsModal} setShowQuoteModal={setShowQuoteModal}
-          streakData={streakData} rankTitle={rankTitle} todaysQuote={todaysQuote}
-          isGoogleLoggedIn={isGoogleLoggedIn}
-          onGoogleLogin={redirectToGoogleLogin}
-          onGoogleLogout={redirectToLogout}
-        />
+        {/* 실제 컨텐츠 */}
+        <div className="relative z-10 flex-1 text-slate-100 p-4 md:p-8">
 
-        <Dashboard
-          totalReadings={totalReadings} todoCompletionRate={todoCompletionRate}
-          requiredPace={requiredPace} targetReadings={targetReadings}
-          setTargetReadings={setTargetReadings} weeklyChartData={weeklyChartData}
-        />
+          <Header
+            isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}
+            searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+            setShowSettingsModal={setShowSettingsModal} setShowQuoteModal={setShowQuoteModal}
+            streakData={streakData} rankTitle={rankTitle} todaysQuote={todaysQuote} aiGreeting={aiGreeting}
+            currentMood={currentMood} setCurrentMood={setCurrentMood} MOODS={MOODS}
+            isGoogleLoggedIn={isGoogleLoggedIn}
+            onGoogleLogin={redirectToGoogleLogin}
+            onGoogleLogout={redirectToLogout}
+          />
 
-        <DDaySection dDays={dDays} setDDays={setDDays} openEditDDay={openEditDDay} />
+          <Dashboard
+            totalReadings={totalReadings} todoCompletionRate={todoCompletionRate}
+            requiredPace={requiredPace} targetReadings={targetReadings}
+            setTargetReadings={setTargetReadings} weeklyChartData={weeklyChartData}
+          />
 
-        <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-8 space-y-8">
-            <CalendarView
-              currentDate={currentDate} setCurrentDate={setCurrentDate} days={days} events={events}
-              selectedDate={selectedDate} setSelectedDate={setSelectedDate} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-              subjects={subjects} toggleReading={toggleReading} deleteSubject={deleteSubject} addSubject={addSubject}
-              newSubjectName={newSubjectName} setNewSubjectName={setNewSubjectName}
-              newSubjectColor={newSubjectColor} setNewSubjectColor={setNewSubjectColor}
-            />
-          </div>
+          <DDaySection dDays={dDays} setDDays={setDDays} openEditDDay={openEditDDay} />
 
-          <div className="lg:col-span-4 space-y-8">
-            <PomodoroTimer
-              timerMode={timerMode} setTimerMode={setTimerMode} isPomoActive={isPomoActive} setIsPomoActive={setIsPomoActive}
-              pomoTime={pomoTime} setPomoTime={setPomoTime} pomoDuration={pomoDuration} changePomoDuration={changePomoDuration}
-              selectedDateTomatoes={selectedDateTomatoes} selectedDate={selectedDate}
-              playlist={playlist} currentTrackIdx={currentTrackIdx} isPlayingAudio={isPlayingAudio} toggleAudio={toggleAudio} handleAudioUpload={handleAudioUpload} audioRef={audioRef}
-              playTrack={playTrack} removeTrack={removeTrack} setPlaylist={setPlaylist} setIsPlayingAudio={setIsPlayingAudio} setCurrentTrackIdx={setCurrentTrackIdx}
-            />
+          <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-8 space-y-8">
+              <CalendarView
+                currentDate={currentDate} setCurrentDate={setCurrentDate} days={days} events={events}
+                selectedDate={selectedDate} setSelectedDate={setSelectedDate} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                subjects={subjects} toggleReading={toggleReading} deleteSubject={deleteSubject} addSubject={addSubject}
+                newSubjectName={newSubjectName} setNewSubjectName={setNewSubjectName}
+                newSubjectColor={newSubjectColor} setNewSubjectColor={setNewSubjectColor}
+              />
+            </div>
 
-            <TodoSection
-              selectedDate={selectedDate} diaries={diaries} saveDiary={saveDiary}
-              todos={todos} addTodo={addTodo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} newTodo={newTodo} setNewTodo={setNewTodo} celebratingId={celebratingId}
-              searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
-              setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
-            />
-          </div>
-        </main>
+            <div className="lg:col-span-4 space-y-8">
+              <PomodoroTimer
+                themeBg={appBgClasses} currentMood={currentMood} defaultSound={currentMoodData.defaultSound}
+                timerMode={timerMode} setTimerMode={setTimerMode} isPomoActive={isPomoActive} setIsPomoActive={setIsPomoActive}
+                pomoTime={pomoTime} setPomoTime={setPomoTime} pomoDuration={pomoDuration} changePomoDuration={changePomoDuration}
+                selectedDateTomatoes={selectedDateTomatoes} selectedDate={selectedDate}
+                playlist={playlist} currentTrackIdx={currentTrackIdx} isPlayingAudio={isPlayingAudio} toggleAudio={toggleAudio} handleAudioUpload={handleAudioUpload} audioRef={audioRef}
+                playTrack={playTrack} removeTrack={removeTrack} setPlaylist={setPlaylist} setIsPlayingAudio={setIsPlayingAudio} setCurrentTrackIdx={setCurrentTrackIdx}
+              />
 
-        <Modals
-          showSettingsModal={showSettingsModal} setShowSettingsModal={setShowSettingsModal} settingsMessage={settingsMessage} handleBackup={handleBackup} handleRestore={handleRestore} showConfirmReset={showConfirmReset} setShowConfirmReset={setShowConfirmReset} handleResetAll={handleResetAll}
-          showQuoteModal={showQuoteModal} setShowQuoteModal={setShowQuoteModal} addQuote={addQuote} newQuoteInput={newQuoteInput} setNewQuoteInput={setNewQuoteInput} customQuotes={customQuotes} deleteQuote={deleteQuote}
-          showDDayModal={showDDayModal} setShowDDayModal={setShowDDayModal} editingDDayIdx={editingDDayIdx} setEditingDDayIdx={setEditingDDayIdx} saveDDay={saveDDay} modalTitle={modalTitle} setModalTitle={setModalTitle} modalDate={modalDate} setModalDate={setModalDate}
-          showAddModal={showAddModal} setShowAddModal={setShowAddModal} addEvent={addEvent} newEventTitle={newEventTitle} setNewEventTitle={setNewEventTitle} newEventDate={newEventDate} setNewEventDate={setNewEventDate} newEventCategory={newEventCategory} setNewEventCategory={setNewEventCategory}
-        />
+              <TodoSection
+                selectedDate={selectedDate} diaries={diaries} saveDiary={saveDiary}
+                todos={todos} addTodo={addTodo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} newTodo={newTodo} setNewTodo={setNewTodo} celebratingId={celebratingId}
+                searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
+                setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
+              />
+            </div>
+          </main>
+
+          <Modals
+            showSettingsModal={showSettingsModal} setShowSettingsModal={setShowSettingsModal} settingsMessage={settingsMessage} handleBackup={handleBackup} handleRestore={handleRestore} showConfirmReset={showConfirmReset} setShowConfirmReset={setShowConfirmReset} handleResetAll={handleResetAll}
+            showQuoteModal={showQuoteModal} setShowQuoteModal={setShowQuoteModal} addQuote={addQuote} newQuoteInput={newQuoteInput} setNewQuoteInput={setNewQuoteInput} customQuotes={customQuotes} deleteQuote={deleteQuote}
+            showDDayModal={showDDayModal} setShowDDayModal={setShowDDayModal} editingDDayIdx={editingDDayIdx} setEditingDDayIdx={setEditingDDayIdx} saveDDay={saveDDay} modalTitle={modalTitle} setModalTitle={setModalTitle} modalDate={modalDate} setModalDate={setModalDate}
+            showAddModal={showAddModal} setShowAddModal={setShowAddModal} addEvent={addEvent} newEventTitle={newEventTitle} setNewEventTitle={setNewEventTitle} newEventDate={newEventDate} setNewEventDate={setNewEventDate} newEventCategory={newEventCategory} setNewEventCategory={setNewEventCategory}
+          />
+        </div>
       </div>
     </div>
   );
