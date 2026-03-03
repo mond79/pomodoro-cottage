@@ -1,101 +1,114 @@
 import os
 import flask
-import json # ⭐ 추가!
-from flask import Flask, render_template, send_from_directory, session, redirect, url_for, request
+import json
+from flask import Flask, send_from_directory, session, redirect, url_for, request, jsonify
+from flask_cors import CORS
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-# 세션을 사용하려면, 아무도 모르는 '비밀 키'가 꼭 필요해!
-# 이건 서버를 껐다 켤 때마다 바뀌어도 상관없어.
-app.secret_key = os.urandom(24)
+# 세션 유실 방지를 위해 고정 키 사용
+app.secret_key = 'mond_cottage_development_key'
 
-# 이제 파일 이름 대신, 환경 변수의 'Key'를 사용
-# CLIENT_SECRETS_FILE = 'client_secret.json' <-- 이 줄은 이제 필요 없어!
-# 우리가 구글에게 요청할 업무 범위 (캘린더를 읽고 쓸 수 있는 권한)
+# 개발 환경에서의 세션 쿠키 설정 (크로스 오리진 대응)
+app.config.update(
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=False,  # 로컬(HTTP) 환경이므로 False
+)
+
+# React 프론트엔드(5173)에서의 요청을 허용 (쿠키/세션 전송 포함)
+CORS(app, supports_credentials=True, origins=["http://localhost:5173", "http://127.0.0.1:5173"])
+
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
-
-# --- 기존 경로 설정 ---
 AMBIENT_DIR = os.path.join(app.root_path, 'static', 'sounds', 'ambient')
 
-# 메인 페이지 라우트
-@app.route('/')
-def index():
+# React 프론트엔드 URL (OAuth 콜백 후 리디렉션용)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://127.0.0.1:5173')
+
+# ==========================================================
+#                    상태 확인 API
+# ==========================================================
+
+@app.route('/api/status')
+def status():
+    # 디버깅: 세션에 무엇이 들어있는지 확인
+    print(f"DEBUG: Status API Session keys: {list(session.keys())}")
+    is_logged_in = 'credentials' in session
+    return jsonify({'is_logged_in': is_logged_in})
+
+
+# ==========================================================
+#                    환경음 관련 API
+# ==========================================================
+
+@app.route('/api/ambient-sounds')
+def get_ambient_sounds():
     ambient_files = []
     if os.path.exists(AMBIENT_DIR):
         for filename in os.listdir(AMBIENT_DIR):
             if filename.endswith(('.mp3', '.wav')):
                 ambient_files.append(filename)
-    
-    # ⭐ 추가: 사용자가 로그인했는지 확인해서, HTML로 전달
-    is_logged_in = 'credentials' in session
-    return render_template('index.html', ambient_files=ambient_files, is_logged_in=is_logged_in)
+    return jsonify({'sounds': ambient_files})
 
+@app.route('/api/audio/<path:filename>')
+def serve_audio(filename):
+    return send_from_directory(AMBIENT_DIR, filename)
 
-# 2. PWA를 위한 새로운 주소(라우트) 2개 추가!
-@app.route('/manifest.json')
-def manifest():
-    # 프로젝트 최상위 폴더에서 manifest.json을 찾아서 보내줌
-    return send_from_directory(app.root_path, 'manifest.json')
-
-@app.route('/service-worker.js')
-def service_worker():
-    # 프로젝트 최상위 폴더에서 service-worker.js를 찾아서 보내줌
-    response = send_from_directory(app.root_path, 'service-worker.js')
-    response.headers['Content-Type'] = 'application/javascript'
-    return response
 
 # ==========================================================
-#         ⭐ 구글 캘린더 연동을 위한 새로운 라우트들 ⭐
+#              구글 캘린더 연동 API
 # ==========================================================
 
-# 1. "구글 캘린더 연동하기" 버튼을 누르면, 여기가 시작이야!
+# 1. 구글 로그인 시작 - React에서 이 URL로 리디렉트
 @app.route('/authorize')
 def authorize():
-    # ⭐⭐ 여기부터 수정! ⭐⭐
-    # 환경 변수에서 JSON 내용을 문자열로 가져옴
-    client_config_json = os.environ.get('GOOGLE_CLIENT_SECRET_JSON')
-    if not client_config_json:
-        return "GOOGLE_CLIENT_SECRET_JSON 환경 변수가 설정되지 않았습니다.", 500
-    
-    # 문자열을 파이썬 딕셔너리로 변환
-    client_config = json.loads(client_config_json)
+    client_secret_file = os.path.join(app.root_path, 'client_secret.json')
+    if not os.path.exists(client_secret_file):
+        return jsonify({'error': 'client_secret.json 파일이 프로젝트 폴더에 존재하지 않습니다.'}), 500
 
-    # 이제 파일이 아니라, 설정 객체(딕셔너리)로부터 Flow를 생성
-    flow = Flow.from_client_config(
-        client_config, scopes=SCOPES)
-    # ⭐⭐ 여기까지 수정! ⭐⭐
+    flow = Flow.from_client_secrets_file(client_secret_file, scopes=SCOPES)
+    # 구글 콘솔에 등록된 127.0.0.1 주소로 강제 지정
+    flow.redirect_uri = "http://127.0.0.1:5000/oauth2callback"
 
-    flow.redirect_uri = url_for('oauth2callback', _external=True)
     authorization_url, state = flow.authorization_url(
         access_type='offline', include_granted_scopes='true')
     session['state'] = state
+    # PKCE 보안을 위해 code_verifier 저장
+    session['code_verifier'] = flow.code_verifier
+    print(f"DEBUG: Authorize URL: {authorization_url}")
+    print(f"DEBUG: State saved in session: {state}")
     return redirect(authorization_url)
 
 
-# 2. 구글에서 신분증 검사를 마치고 돌아오는 주소
+# 2. 구글 OAuth 콜백 → 인증 완료 후 React 프론트엔드로 리디렉션
 @app.route('/oauth2callback')
 def oauth2callback():
-    state = session['state']
-    
-    # ⭐⭐ 여기도 똑같이 수정! ⭐⭐
-    client_config_json = os.environ.get('GOOGLE_CLIENT_SECRET_JSON')
-    client_config = json.loads(client_config_json)
-    flow = Flow.from_client_config(
-        client_config, scopes=SCOPES, state=state)
-    # ⭐⭐ 여기까지 수정! ⭐⭐
-    flow.redirect_uri = url_for('oauth2callback', _external=True)
+    state = session.get('state')
+    code_verifier = session.get('code_verifier')
+    print(f"DEBUG: Callback State from session: {state}")
+    print(f"DEBUG: Callback Code Verifier from session: {'exists' if code_verifier else 'None'}")
+    print(f"DEBUG: Callback State from request: {request.args.get('state')}")
 
-    # 구글이 보내준 '임시 출입증(인증 코드)'을 받음
+    client_secret_file = os.path.join(app.root_path, 'client_secret.json')
+    flow = Flow.from_client_secrets_file(client_secret_file, scopes=SCOPES, state=state)
+    flow.redirect_uri = "http://127.0.0.1:5000/oauth2callback"
+    # PKCE 보안을 위해 code_verifier 복원
+    flow.code_verifier = code_verifier
+
     authorization_response = request.url
-    # 임시 출입증을 진짜 '단골 카드(토큰)'로 교환
-    flow.fetch_token(authorization_response=authorization_response)
+    print(f"DEBUG: Authorization Response URL: {authorization_response}")
+    
+    try:
+        flow.fetch_token(authorization_response=authorization_response)
+        print("DEBUG: Token fetched successfully!")
+    except Exception as e:
+        print(f"DEBUG: Token fetch failed: {str(e)}")
+        raise e
 
-    # 발급받은 '단골 카드'를 안전하게 저장
     credentials = flow.credentials
     session['credentials'] = {
         'token': credentials.token,
@@ -103,63 +116,51 @@ def oauth2callback():
         'token_uri': credentials.token_uri,
         'client_id': credentials.client_id,
         'client_secret': credentials.client_secret,
-        'scopes': credentials.scopes}
-    
-    # 모든 과정이 끝났으니, 다시 메인 페이지로 돌아감
-    return redirect(url_for('index'))
-
-
-# 3. 로그아웃 기능
-@app.route('/logout')
-def logout():
-    # 세션에서 '단골 카드' 정보 삭제
-    if 'credentials' in session:
-        session.pop('credentials')
-    return redirect(url_for('index'))
-
-
-# 4. 뽀모도로 완료 시, 캘린더에 이벤트를 생성하는 주소
-@app.route('/add_event', methods=['POST'])
-def add_event():
-    # 사용자가 로그인하지 않았으면, 아무것도 안 함
-    if 'credentials' not in session:
-        return flask.jsonify({'error': 'User not authenticated'}), 401
-
-    # 저장된 '단골 카드' 정보로 구글 인증 정보 객체 생성
-    credentials = Credentials(**session['credentials'])
-    # 캘린더 업무를 할 수 있는 '서비스 객체' 생성
-    service = build('calendar', 'v3', credentials=credentials)
-
-    # 뽀모도로 세션 정보 (시작 시간, 종료 시간)
-    now = datetime.utcnow()
-    # 자바스크립트에서 보낸 'duration' 값을 받음
-    duration = request.json.get('duration', 25)
-    start_time = (now - timedelta(minutes=duration)).isoformat() + 'Z' # UTC
-    end_time = now.isoformat() + 'Z' # UTC
-
-    # 구글 캘린더에 보낼 '주문서(이벤트 객체)' 작성
-    event = {
-      'summary': '✅ 집중 시간 완료 (코티지 뽀모도로)',
-      'description': '몬드의 코티지 뽀모도로 앱으로 집중한 시간입니다.',
-      'start': {
-        'dateTime': start_time,
-        'timeZone': 'UTC',
-      },
-      'end': {
-        'dateTime': end_time,
-        'timeZone': 'UTC',
-      },
+        'scopes': credentials.scopes
     }
 
-    # 구글 캘린더에 이벤트 생성 요청!
+    # 인증 완료 후 React 프론트엔드로 돌아감
+    return redirect(FRONTEND_URL)
+
+
+# 3. 로그아웃 → React 프론트엔드로 리디렉션
+@app.route('/api/logout')
+def logout():
+    if 'credentials' in session:
+        session.pop('credentials')
+    return redirect(FRONTEND_URL)
+
+
+# 4. 뽀모도로 완료 시 구글 캘린더에 이벤트 생성
+@app.route('/api/add_event', methods=['POST'])
+def add_event():
+    if 'credentials' not in session:
+        return jsonify({'error': '구글 계정으로 로그인해주세요.'}), 401
+
+    credentials = Credentials(**session['credentials'])
+    service = build('calendar', 'v3', credentials=credentials)
+
+    now = datetime.utcnow()
+    duration = request.json.get('duration', 25)
+    subject = request.json.get('subject', '집중 공부')
+    start_time = (now - timedelta(minutes=duration)).isoformat() + 'Z'
+    end_time = now.isoformat() + 'Z'
+
+    event = {
+        'summary': f'✅ {subject} 완료 ({duration}분)',
+        'description': 'Gonggong Planner 뽀모도로 앱으로 집중한 시간입니다.',
+        'start': {'dateTime': start_time, 'timeZone': 'UTC'},
+        'end': {'dateTime': end_time, 'timeZone': 'UTC'},
+    }
+
     service.events().insert(calendarId='primary', body=event).execute()
-    
-    # 성공적으로 완료되었다고 응답
-    return flask.jsonify({'success': True})
+    return jsonify({'success': True})
 
 
-# --- 서버 실행 코드 ---
+# ==========================================================
+#                    서버 실행
+# ==========================================================
+
 if __name__ == '__main__':
-    # SSL/TLS를 사용하지 않을 경우, OAuth 리디렉션 URI에 HTTP를 허용해야 함
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
     app.run(host='0.0.0.0', port=5000, debug=True)

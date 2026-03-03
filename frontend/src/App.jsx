@@ -1,0 +1,399 @@
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import Header from './components/Header';
+import Dashboard from './components/Dashboard';
+import DDaySection from './components/DDaySection';
+import CalendarView from './components/CalendarView';
+import PomodoroTimer from './components/PomodoroTimer';
+import TodoSection from './components/TodoSection';
+import Modals from './components/Modals';
+
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS } from './constants';
+import { formatYMD, parseYMD, generateId, formatDDay } from './utils/dateHelpers';
+import { fetchStatus, addCalendarEvent, redirectToGoogleLogin, redirectToLogout } from './utils/api';
+
+export default function App() {
+  // --- States ---
+  const [isDarkMode, setIsDarkMode] = useLocalStorage('gplanner-dark', false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Modals
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showDDayModal, setShowDDayModal] = useState(false);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // D-Day & Add Event
+  const [editingDDayIdx, setEditingDDayIdx] = useState(null);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalDate, setModalDate] = useState('');
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDate, setNewEventDate] = useState(formatYMD(new Date()));
+  const [newEventCategory, setNewEventCategory] = useState('other');
+  const [newEventLocation, setNewEventLocation] = useState('');
+
+  // Pomodoro Timer States 🍅 & 🍃
+  const [pomoDuration, setPomoDuration] = useState(25);
+  const [pomoTime, setPomoTime] = useState(25 * 60);
+  const [isPomoActive, setIsPomoActive] = useState(false);
+  const [timerMode, setTimerMode] = useState('work'); // 'work' | 'rest'
+  const [pomoHistory, setPomoHistory] = useLocalStorage('gplanner-pomos', {});
+
+  const audioRef = useRef(null);
+  const [audioName, setAudioName] = useState('');
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // Settings / Stats
+  const [targetReadings, setTargetReadings] = useLocalStorage('gplanner-target', 100);
+  const [celebratingId, setCelebratingId] = useState(null);
+  const [streakData, setStreakData] = useLocalStorage('gplanner-streak', { streak: 0, lastDate: '' });
+
+  // Persistent Data States
+  const [customQuotes, setCustomQuotes] = useLocalStorage('gplanner-quotes', DEFAULT_QUOTES);
+  const [newQuoteInput, setNewQuoteInput] = useState('');
+
+  const [dDays, setDDays] = useLocalStorage('gplanner-ddays', [
+    { id: generateId(), title: '국가직 시험', date: '2026-04-05', color: 'from-blue-500 to-blue-700' },
+    { id: generateId(), title: '지방직 시험', date: '2026-06-13', color: 'from-purple-500 to-pink-600' }
+  ]);
+
+  const [subjects, setSubjects] = useLocalStorage('gplanner-subjects', [
+    { id: generateId(), name: '집중 공부 시간', history: {}, color: 'bg-indigo-400' }
+  ]);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [newSubjectColor, setNewSubjectColor] = useState(SUBJECT_COLORS[4].value);
+
+  const [diaries, setDiaries] = useLocalStorage('gplanner-diaries', {});
+  const [todos, setTodos] = useLocalStorage('gplanner-todos', [
+    { id: generateId(), text: '코티지 플래너 정리하기', completed: false }
+  ]);
+  const [newTodo, setNewTodo] = useState('');
+
+  const [events, setEvents] = useLocalStorage('gplanner-events', []);
+
+  // Google Calendar 연동 상태
+  const [isGoogleLoggedIn, setIsGoogleLoggedIn] = useState(false);
+
+  // Settings Modal States
+  const [settingsMessage, setSettingsMessage] = useState('');
+  const [showConfirmReset, setShowConfirmReset] = useState(false);
+
+  // --- Effects ---
+
+  // 앱 시작 시 Flask 백엔드에서 구글 로그인 상태 확인
+  useEffect(() => {
+    fetchStatus().then(data => setIsGoogleLoggedIn(data.is_logged_in));
+  }, []);
+
+  // 뽀모도로 타이머 로직
+  useEffect(() => {
+    let interval = null;
+    if (isPomoActive && pomoTime > 0) {
+      interval = setInterval(() => {
+        setPomoTime(prev => prev - 1);
+      }, 1000);
+    } else if (isPomoActive && pomoTime === 0) {
+      if (timerMode === 'work') {
+        const todayStr = formatYMD(new Date());
+        setPomoHistory(prev => ({ ...prev, [todayStr]: (prev[todayStr] || 0) + 1 }));
+
+        // 구글 캘린더에 이벤트 자동 전송 🗓️
+        if (isGoogleLoggedIn) {
+          addCalendarEvent(pomoDuration).then(res => {
+            if (res.success) console.log('📅 구글 캘린더에 기록 완료!');
+          });
+        }
+
+        setTimerMode('rest');
+        setPomoTime(10 * 60);
+      } else {
+        setTimerMode('work');
+        setPomoTime(pomoDuration * 60);
+        setIsPomoActive(false);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [isPomoActive, pomoTime, timerMode, pomoDuration, setPomoHistory, isGoogleLoggedIn]);
+
+  const changePomoDuration = (mins) => {
+    setPomoDuration(mins);
+    setTimerMode('work');
+    setPomoTime(mins * 60);
+    setIsPomoActive(false);
+  };
+
+  const handleAudioUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      if (audioRef.current) {
+        audioRef.current.src = url;
+        audioRef.current.load();
+      }
+      setAudioName(file.name);
+      setIsPlayingAudio(false);
+    }
+  };
+
+  const toggleAudio = () => {
+    if (!audioRef.current || !audioName) return;
+    if (isPlayingAudio) audioRef.current.pause();
+    else audioRef.current.play();
+    setIsPlayingAudio(!isPlayingAudio);
+  };
+
+  const saveDiary = (text) => {
+    const dateStr = formatYMD(selectedDate);
+    setDiaries(prev => ({ ...prev, [dateStr]: text }));
+  };
+
+  // --- Data Management ---
+  const handleBackup = () => {
+    const data = { dDays, events, subjects, todos, isDarkMode, targetReadings, customQuotes, diaries, pomoHistory };
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gonggong-planner-backup-${formatYMD(new Date())}.json`;
+    a.click();
+    setSettingsMessage('✨ 타임캡슐이 안전하게 다운로드 되었습니다!');
+    setTimeout(() => setSettingsMessage(''), 3000);
+  };
+
+  const handleRestore = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (data.dDays) setDDays(data.dDays);
+        if (data.events) setEvents(data.events);
+        if (data.subjects) setSubjects(data.subjects);
+        if (data.todos) setTodos(data.todos);
+        if (typeof data.isDarkMode === 'boolean') setIsDarkMode(data.isDarkMode);
+        if (data.targetReadings) setTargetReadings(data.targetReadings);
+        if (data.customQuotes) setCustomQuotes(data.customQuotes);
+        if (data.diaries) setDiaries(data.diaries);
+        if (data.pomoHistory) setPomoHistory(data.pomoHistory);
+        setSettingsMessage('💖 타임캡슐에서 과거의 기록을 모두 꺼냈습니다!');
+      } catch (err) {
+        setSettingsMessage('🥲 앗, 파일 형식이 잘못되었습니다.');
+      }
+      setTimeout(() => setSettingsMessage(''), 3000);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleResetAll = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
+
+  // --- Handlers ---
+  const addQuote = (e) => {
+    e.preventDefault();
+    if (!newQuoteInput.trim()) return;
+    setCustomQuotes(prev => [...prev, newQuoteInput.trim()]);
+    setNewQuoteInput('');
+  };
+
+  const deleteQuote = (idx) => {
+    if (customQuotes.length <= 1) {
+      setSettingsMessage('최소 1개의 명언은 남겨두어야 합니다! ✨');
+      setTimeout(() => setSettingsMessage(''), 2000);
+      return;
+    }
+    setCustomQuotes(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const toggleReading = (id, increment) => {
+    const dateStr = formatYMD(selectedDate);
+    setSubjects(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const currentHistory = s.history || {};
+      const currentCount = currentHistory[dateStr] || 0;
+      return { ...s, history: { ...currentHistory, [dateStr]: Math.max(0, currentCount + increment) } };
+    }));
+  };
+
+  const addSubject = (e) => {
+    e.preventDefault();
+    if (!newSubjectName.trim()) return;
+    setSubjects(prev => [...prev, { id: generateId(), name: newSubjectName.trim(), history: {}, color: newSubjectColor }]);
+    setNewSubjectName('');
+  };
+
+  const deleteSubject = (id) => setSubjects(prev => prev.filter(s => s.id !== id));
+
+  const toggleTodo = (id) => {
+    setTodos(prev => prev.map(t => {
+      if (t.id === id) {
+        if (!t.completed) {
+          setCelebratingId(id);
+          setTimeout(() => setCelebratingId(null), 1000);
+
+          const today = formatYMD(new Date());
+          const yesterdayDate = new Date();
+          yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+          const yesterday = formatYMD(yesterdayDate);
+
+          setStreakData(prevStreak => {
+            if (prevStreak.lastDate === today) return prevStreak;
+            if (prevStreak.lastDate === yesterday) return { streak: prevStreak.streak + 1, lastDate: today };
+            return { streak: 1, lastDate: today };
+          });
+        }
+        return { ...t, completed: !t.completed };
+      }
+      return t;
+    }));
+  };
+
+  const addTodo = (e) => {
+    e.preventDefault();
+    if (!newTodo.trim()) return;
+    setTodos(prev => [...prev, { id: generateId(), text: newTodo.trim(), completed: false }]);
+    setNewTodo('');
+  };
+  const deleteTodo = (id) => setTodos(prev => prev.filter(t => t.id !== id));
+
+  const saveDDay = (e) => {
+    e.preventDefault();
+    if (editingDDayIdx === null) return;
+    setDDays(prev => prev.map((d, i) => i === editingDDayIdx ? { ...d, title: modalTitle, date: modalDate } : d));
+    setShowDDayModal(false);
+    setEditingDDayIdx(null);
+  };
+  const openEditDDay = (idx) => {
+    setEditingDDayIdx(idx);
+    setModalTitle(dDays[idx].title);
+    setModalDate(dDays[idx].date);
+    setShowDDayModal(true);
+  };
+
+  const addEvent = (e) => {
+    e.preventDefault();
+    if (!newEventTitle.trim() || !newEventDate) return;
+    setEvents(prev => [...prev, {
+      id: generateId(), title: newEventTitle.trim(), date: newEventDate, category: newEventCategory, location: newEventLocation.trim() || '미정'
+    }]);
+    setNewEventTitle(''); setNewEventLocation(''); setNewEventCategory('other'); setShowAddModal(false);
+  };
+  const deleteEvent = (id) => setEvents(prev => prev.filter(e => e.id !== id));
+
+  // --- Analytics ---
+  const totalReadings = useMemo(() => subjects.reduce((sum, s) => sum + Object.values(s.history || {}).reduce((a, b) => a + b, 0), 0), [subjects]);
+  const todoCompletionRate = useMemo(() => todos.length === 0 ? 0 : Math.round((todos.filter(t => t.completed).length / todos.length) * 100), [todos]);
+
+  const requiredPace = useMemo(() => {
+    const todayStr = new Date().setHours(0, 0, 0, 0);
+    const futureDDays = dDays.map(d => {
+      const dDate = parseYMD(d.date).getTime();
+      return { ...d, diffDays: Math.round((dDate - todayStr) / (1000 * 60 * 60 * 24)) };
+    }).filter(d => d.diffDays > 0).sort((a, b) => a.diffDays - b.diffDays);
+    if (futureDDays.length === 0) return 0;
+    const remainingToRead = Math.max(0, targetReadings - totalReadings);
+    return futureDDays[0].diffDays > 0 ? (remainingToRead / futureDDays[0].diffDays).toFixed(1) : 0;
+  }, [dDays, totalReadings, targetReadings]);
+
+  const weeklyChartData = useMemo(() => {
+    const data = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const dStr = formatYMD(d);
+      const dayTotal = subjects.reduce((sum, s) => sum + (s.history?.[dStr] || 0), 0);
+      data.push({ label: `${d.getDate()}일`, total: dayTotal, fullDate: dStr });
+    }
+    const maxTotal = Math.max(...data.map(d => d.total), 1);
+    return data.map(d => ({ ...d, height: (d.total / maxTotal) * 100 }));
+  }, [subjects]);
+
+  const days = useMemo(() => {
+    const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+    const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+    const arr = [];
+    const totalDays = getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth());
+    const firstDay = getFirstDayOfMonth(currentDate.getFullYear(), currentDate.getMonth());
+    for (let i = 0; i < firstDay; i++) arr.push(null);
+    for (let i = 1; i <= totalDays; i++) arr.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), i));
+    return arr;
+  }, [currentDate]);
+
+  const displayedEvents = searchQuery.trim() !== ''
+    ? events.filter(e => e.title.toLowerCase().includes(searchQuery.toLowerCase()) || e.location.toLowerCase().includes(searchQuery.toLowerCase()))
+    : events.filter(event => event.date === formatYMD(selectedDate));
+
+  const todaysQuote = useMemo(() => customQuotes[new Date().getDate() % customQuotes.length] || DEFAULT_QUOTES[0], [customQuotes]);
+  const selectedDateTomatoes = useMemo(() => pomoHistory[formatYMD(selectedDate)] || 0, [pomoHistory, selectedDate]);
+
+  const rankTitle = useMemo(() => {
+    if (totalReadings >= 100) return '👑 공공의 지배자';
+    if (totalReadings >= 50) return '🔥 열정적인 불꽃';
+    if (totalReadings >= 10) return '🧙‍♂️ 수습 마법사';
+    return '🌱 새싹 항해사';
+  }, [totalReadings]);
+
+  return (
+    <div className={`${isDarkMode ? 'dark' : ''} min-h-screen transition-colors duration-300 font-sans selection:bg-blue-200`}>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 md:p-8">
+
+        <Header
+          isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}
+          searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+          setShowSettingsModal={setShowSettingsModal} setShowQuoteModal={setShowQuoteModal}
+          streakData={streakData} rankTitle={rankTitle} todaysQuote={todaysQuote}
+          isGoogleLoggedIn={isGoogleLoggedIn}
+          onGoogleLogin={redirectToGoogleLogin}
+          onGoogleLogout={redirectToLogout}
+        />
+
+        <Dashboard
+          totalReadings={totalReadings} todoCompletionRate={todoCompletionRate}
+          requiredPace={requiredPace} targetReadings={targetReadings}
+          setTargetReadings={setTargetReadings} weeklyChartData={weeklyChartData}
+        />
+
+        <DDaySection dDays={dDays} setDDays={setDDays} openEditDDay={openEditDDay} />
+
+        <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8 space-y-8">
+            <CalendarView
+              currentDate={currentDate} setCurrentDate={setCurrentDate} days={days} events={events}
+              selectedDate={selectedDate} setSelectedDate={setSelectedDate} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+              subjects={subjects} toggleReading={toggleReading} deleteSubject={deleteSubject} addSubject={addSubject}
+              newSubjectName={newSubjectName} setNewSubjectName={setNewSubjectName}
+              newSubjectColor={newSubjectColor} setNewSubjectColor={setNewSubjectColor}
+            />
+          </div>
+
+          <div className="lg:col-span-4 space-y-8">
+            <PomodoroTimer
+              timerMode={timerMode} setTimerMode={setTimerMode} isPomoActive={isPomoActive} setIsPomoActive={setIsPomoActive}
+              pomoTime={pomoTime} setPomoTime={setPomoTime} pomoDuration={pomoDuration} changePomoDuration={changePomoDuration}
+              selectedDateTomatoes={selectedDateTomatoes} selectedDate={selectedDate}
+              audioName={audioName} isPlayingAudio={isPlayingAudio} toggleAudio={toggleAudio} handleAudioUpload={handleAudioUpload} audioRef={audioRef}
+              setAudioName={setAudioName} setIsPlayingAudio={setIsPlayingAudio}
+            />
+
+            <TodoSection
+              selectedDate={selectedDate} diaries={diaries} saveDiary={saveDiary}
+              todos={todos} addTodo={addTodo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} newTodo={newTodo} setNewTodo={setNewTodo} celebratingId={celebratingId}
+              searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
+              setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
+            />
+          </div>
+        </main>
+
+        <Modals
+          showSettingsModal={showSettingsModal} setShowSettingsModal={setShowSettingsModal} settingsMessage={settingsMessage} handleBackup={handleBackup} handleRestore={handleRestore} showConfirmReset={showConfirmReset} setShowConfirmReset={setShowConfirmReset} handleResetAll={handleResetAll}
+          showQuoteModal={showQuoteModal} setShowQuoteModal={setShowQuoteModal} addQuote={addQuote} newQuoteInput={newQuoteInput} setNewQuoteInput={setNewQuoteInput} customQuotes={customQuotes} deleteQuote={deleteQuote}
+          showDDayModal={showDDayModal} setShowDDayModal={setShowDDayModal} editingDDayIdx={editingDDayIdx} setEditingDDayIdx={setEditingDDayIdx} saveDDay={saveDDay} modalTitle={modalTitle} setModalTitle={setModalTitle} modalDate={modalDate} setModalDate={setModalDate}
+          showAddModal={showAddModal} setShowAddModal={setShowAddModal} addEvent={addEvent} newEventTitle={newEventTitle} setNewEventTitle={setNewEventTitle} newEventDate={newEventDate} setNewEventDate={setNewEventDate} newEventCategory={newEventCategory} setNewEventCategory={setNewEventCategory}
+        />
+      </div>
+    </div>
+  );
+}

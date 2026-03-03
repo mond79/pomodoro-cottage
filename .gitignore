@@ -1,2 +1,17 @@
-.venv/
+# 보안 파일
 client_secret.json
+.env
+# 파이썬 관련
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+# 프론트엔드 관련
+node_modules/
+dist/
+build/
+.eslintcache
+# 운영체제 임시 파일
+.DS_Store
+Thumbs.db
