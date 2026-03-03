@@ -8,16 +8,21 @@ from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
+import traceback
+
+# 배포 환경에서 http 요청을 허용 (Render의 프록시 내부 통신 대응)
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 app = Flask(__name__)
 # 세션 유실 방지를 위해 고정 키 사용
 app.secret_key = 'mond_cottage_development_key'
 
 # 세션 쿠키 설정 (크로스 오리진 및 배포 환경 대응)
+is_prod = 'onrender.com' in os.environ.get('FRONTEND_URL', '') or os.environ.get('PORT')
 app.config.update(
     SESSION_COOKIE_SAMESITE='Lax',
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=False,  # HTTPS 전용으로 하려면 배포 시 True 권장
+    SESSION_COOKIE_SECURE=is_prod,  # 배포 환경(Render)에서는 True
 )
 
 # React 빌드 폴더 경로 설정 (배포 시 frontend/dist 서빙)
@@ -126,14 +131,27 @@ def oauth2callback():
     flow.code_verifier = code_verifier
 
     authorization_response = request.url
+    # Render와 같은 프록시 환경에서는 request.url이 http로 올 수 있음 -> https로 강제 변환
+    if "onrender.com" in authorization_response:
+        authorization_response = authorization_response.replace("http://", "https://")
+    
     print(f"DEBUG: Authorization Response URL: {authorization_response}")
     
     try:
         flow.fetch_token(authorization_response=authorization_response)
         print("DEBUG: Token fetched successfully!")
     except Exception as e:
-        print(f"DEBUG: Token fetch failed: {str(e)}")
-        raise e
+        error_details = traceback.format_exc()
+        print(f"DEBUG: Token fetch failed: {error_details}")
+        return f"""
+        <h2>인증 토큰 획득 실패 (OAuth Error)</h2>
+        <p><b>에러 메시지:</b> {str(e)}</p>
+        <p><b>상세 디버그 정보:</b></p>
+        <pre style="background: #f4f4f4; padding: 10px;">{error_details}</pre>
+        <hr>
+        <p><b>현재 Redirect URI:</b> {flow.redirect_uri}</p>
+        <p><b>받은 응답 URL:</b> {authorization_response}</p>
+        """, 500
 
     credentials = flow.credentials
     session['credentials'] = {
