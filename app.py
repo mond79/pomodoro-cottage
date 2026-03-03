@@ -79,15 +79,19 @@ def serve_audio(filename):
 # 1. 구글 로그인 시작 - React에서 이 URL로 리디렉트
 @app.route('/authorize')
 def authorize():
+    # 클라이언트 비밀키 정보 가져오기 (파일 우선, 없으면 환경 변수)
     client_secret_file = os.path.join(app.root_path, 'client_secret.json')
     if os.path.exists(client_secret_file):
         flow = Flow.from_client_secrets_file(client_secret_file, scopes=SCOPES)
     else:
         # 파일이 없으면 환경 변수에서 읽기
-        client_config = json.loads(os.environ.get('GOOGLE_CLIENT_SECRET_JSON', '{}'))
-        if not client_config:
-            return jsonify({'error': 'client_secret.json 파일 혹은 GOOGLE_CLIENT_SECRET_JSON 환경 변수가 없습니다.'}), 500
-        flow = Flow.from_client_config(client_config, scopes=SCOPES)
+        raw_config = json.loads(os.environ.get('GOOGLE_CLIENT_SECRET_JSON', '{}'))
+        client_config = raw_config.get('web') or raw_config.get('installed') or raw_config
+        
+        if not client_config or 'client_id' not in client_config:
+            return jsonify({'error': 'client_secret.json 파일 혹은 GOOGLE_CLIENT_SECRET_JSON 환경 변수가 올바르지 않습니다.'}), 500
+            
+        flow = Flow.from_client_config({'web': client_config} if 'web' not in raw_config and 'installed' not in raw_config else raw_config, scopes=SCOPES)
 
     # 리디렉션 URI를 현재 접속한 호스트에 맞춰 동적 생성
     base_url = request.host_url.rstrip('/')
@@ -119,8 +123,15 @@ def oauth2callback():
     if os.path.exists(client_secret_file):
         flow = Flow.from_client_secrets_file(client_secret_file, scopes=SCOPES, state=state)
     else:
-        client_config = json.loads(os.environ.get('GOOGLE_CLIENT_SECRET_JSON', '{}'))
-        flow = Flow.from_client_config(client_config, scopes=SCOPES, state=state)
+        # 파일이 없으면 환경 변수에서 읽기
+        raw_config = json.loads(os.environ.get('GOOGLE_CLIENT_SECRET_JSON', '{}'))
+        # 구글 JSON 파일은 보통 {"web": {...}} 또는 {"installed": {...}} 형태임
+        client_config = raw_config.get('web') or raw_config.get('installed') or raw_config
+        
+        if not client_config or 'client_id' not in client_config:
+            return f"<h2>설정 오류</h2><p>GOOGLE_CLIENT_SECRET_JSON 환경 변수 형식이 올바르지 않습니다.</p><pre>{json.dumps(raw_config, indent=2)}</pre>", 500
+            
+        flow = Flow.from_client_config({'web': client_config} if 'web' not in raw_config and 'installed' not in raw_config else raw_config, scopes=SCOPES, state=state)
     
     base_url = request.host_url.rstrip('/')
     if "onrender.com" in base_url:
