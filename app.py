@@ -9,6 +9,13 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 import traceback
+import requests
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
+
+OPENWEATHER_API_KEY = os.environ.get('OPENWEATHER_WEATHER_API_KEY') or os.environ.get('OPENWEATHER_API_KEY')
 
 # 배포 환경에서 http 요청을 허용 (Render의 프록시 내부 통신 대응)
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -69,6 +76,37 @@ def get_ambient_sounds():
             if filename.endswith(('.mp3', '.wav')):
                 ambient_files.append(filename)
     return jsonify({'sounds': ambient_files})
+
+@app.route('/api/weather')
+def get_weather():
+    lat = request.args.get('lat')
+    lon = request.args.get('lon')
+    
+    if not lat or not lon:
+        return jsonify({'error': 'Location (lat/lon) is required'}), 400
+    
+    if not OPENWEATHER_API_KEY:
+        return jsonify({'error': 'Weather API Key is not configured'}), 500
+        
+    try:
+        url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric&lang=kr"
+        response = requests.get(url)
+        data = response.json()
+        
+        if response.status_code == 200:
+            return jsonify({
+                'temp': data['main']['temp'],
+                'condition': data['weather'][0]['main'],
+                'description': data['weather'][0]['description'],
+                'icon': data['weather'][0]['icon'],
+                'city': data['name']
+            })
+        else:
+            return jsonify({'error': data.get('message', 'Failed to fetch weather')}), response.status_code
+            
+    except Exception as e:
+        print(f"DEBUG: Weather API failed: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/audio/<path:filename>')
 def serve_audio(filename):

@@ -107,3 +107,17 @@ export async function addGoogleTask(title) {
         return { success: false, error: err.message };
     }
 }
+
+/**
+ * 실시간 날씨 정보 가져오기 (OpenWeatherMap via Flask)
+ */
+export async function fetchWeather(lat, lon) {
+    try {
+        const res = await fetch(`${API_BASE}/api/weather?lat=${lat}&lon=${lon}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('날씨 정보 가져오기 실패');
+        return await res.json();
+    } catch (err) {
+        console.warn('날씨 API 연결 불가:', err.message);
+        return null;
+    }
+}

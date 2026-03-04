@@ -77,7 +77,7 @@ export default function Modals({
                         <form onSubmit={addQuote} className="flex gap-2 mb-6">
                             <input
                                 type="text" placeholder="새로운 명언을 입력하세요..."
-                                className="flex-1 px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                                className="flex-1 px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800 dark:text-slate-100"
                                 value={newQuoteInput} onChange={(e) => setNewQuoteInput(e.target.value)}
                             />
                             <button type="submit" className="px-5 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 font-black cursor-pointer"><Plus className="w-5 h-5" /></button>
@@ -105,11 +105,11 @@ export default function Modals({
                         <form onSubmit={saveDDay} className="space-y-5">
                             <div>
                                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">목표 이름</label>
-                                <input value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} name="title" type="text" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold" />
+                                <input value={modalTitle} onChange={(e) => setModalTitle(e.target.value)} name="title" type="text" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800 dark:text-slate-100" />
                             </div>
                             <div>
                                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">날짜 설정</label>
-                                <input value={modalDate} onChange={(e) => setModalDate(e.target.value)} name="date" type="date" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold" />
+                                <input value={modalDate} onChange={(e) => setModalDate(e.target.value)} name="date" type="date" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800 dark:text-slate-100" />
                             </div>
                             <div className="flex gap-3 pt-4">
                                 <button type="button" onClick={() => { setShowDDayModal(false); setEditingDDayIdx(null); }} className="cursor-pointer flex-1 py-4 rounded-2xl font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">닫기</button>
@@ -131,16 +131,16 @@ export default function Modals({
                         <form onSubmit={addEvent} className="space-y-5">
                             <div>
                                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">일정 제목</label>
-                                <input required value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} type="text" placeholder="도서관 가서 공부하기" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold placeholder-slate-400" />
+                                <input required value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} type="text" placeholder="도서관 가서 공부하기" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold placeholder-slate-400 text-slate-800 dark:text-slate-100" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">날짜</label>
-                                    <input required value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} type="date" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold" />
+                                    <input required value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} type="date" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800 dark:text-slate-100" />
                                 </div>
                                 <div>
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">분류</label>
-                                    <select value={newEventCategory} onChange={(e) => setNewEventCategory(e.target.value)} className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold appearance-none">
+                                    <select value={newEventCategory} onChange={(e) => setNewEventCategory(e.target.value)} className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold appearance-none text-slate-800 dark:text-slate-100">
                                         {CATEGORIES.filter(c => c.id !== 'all').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
                                 </div>

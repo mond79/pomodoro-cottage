@@ -9,7 +9,8 @@ export default function Header({
     streakData, rankTitle, todaysQuote, aiGreeting,
     currentMood, setCurrentMood, MOODS,
     isGoogleLoggedIn, onGoogleLogin, onGoogleLogout,
-    onShowHeatmap
+    onShowHeatmap,
+    weatherData
 }) {
     const [showMoodMenu, setShowMoodMenu] = useState(false);
     const [showBotMessage, setShowBotMessage] = useState(true);
@@ -96,6 +97,22 @@ export default function Header({
                         <LogIn className="w-4 h-4" /> 구글 캘린더 연동
                     </button>
                 )}
+
+                {/* ☁️ 실시간 날씨 */}
+                {weatherData && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:scale-105 cursor-default">
+                        <img
+                            src={`http://openweathermap.org/img/wn/${weatherData.icon}.png`}
+                            alt={weatherData.description}
+                            className="w-8 h-8 -my-1"
+                        />
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 leading-none">{weatherData.city}</span>
+                            <span className="text-xs font-black text-slate-700 dark:text-slate-300">{Math.round(weatherData.temp)}°C</span>
+                        </div>
+                    </div>
+                )}
+
                 <div className="relative">
                     <button
                         onClick={() => setShowMoodMenu(!showMoodMenu)}

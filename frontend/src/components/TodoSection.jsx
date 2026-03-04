@@ -18,7 +18,7 @@ export default function TodoSection({
                 <p className="text-xs text-slate-400 mb-4 font-bold">{selectedDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}의 기록</p>
                 <textarea
                     placeholder="오늘 하루는 어땠나요? 사소한 칭찬도, 아쉬운 점도 모두 별빛이 될 거예요."
-                    className="w-full h-32 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none leading-relaxed transition-all placeholder-slate-400 custom-scrollbar"
+                    className="w-full h-32 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none resize-none leading-relaxed transition-all placeholder-slate-400 custom-scrollbar"
                     value={diaries[formatYMD(selectedDate)] || ''}
                     onChange={(e) => saveDiary(e.target.value)}
                 />
@@ -28,7 +28,7 @@ export default function TodoSection({
             <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 relative">
                 <h3 className="text-xl font-black mb-6 flex items-center gap-3"><CheckSquare className="w-6 h-6 text-green-500" /> 오늘 나의 목표</h3>
                 <form onSubmit={addTodo} className="mb-6 flex gap-2">
-                    <input type="text" placeholder="오늘 할 일..." className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm focus:ring-2 focus:ring-green-500 outline-none" value={newTodo} onChange={(e) => setNewTodo(e.target.value)} />
+                    <input type="text" placeholder="오늘 할 일..." className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-green-500 outline-none" value={newTodo} onChange={(e) => setNewTodo(e.target.value)} />
                     <button type="submit" className="bg-green-600 text-white p-2.5 rounded-2xl hover:bg-green-700 transition-all cursor-pointer"><Plus className="w-5 h-5" /></button>
                 </form>
                 <div className="space-y-3">
