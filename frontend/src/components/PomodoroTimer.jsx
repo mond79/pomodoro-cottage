@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Headphones, Music, Volume2 } from 'lucide-react';
+import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Headphones, Music, Volume2, Save, Trash2 } from 'lucide-react';
 import { formatYMD } from '../utils/dateHelpers';
 import { fetchAmbientSounds, getAudioUrl } from '../utils/api';
 
@@ -26,6 +26,54 @@ export default function PomodoroTimer({
 
     // === 로파이 BGM (채널 2) — 기존 audioRef 사용 ===
     const [lofiVolume, setLofiVolume] = useState(0.5);
+
+    // === 🎧 사운드 프리셋 ===
+    const [soundPresets, setSoundPresets] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('gplanner-sound-presets') || '[]'); } catch { return []; }
+    });
+    const [presetName, setPresetName] = useState('');
+
+    const savePresets = (presets) => {
+        setSoundPresets(presets);
+        localStorage.setItem('gplanner-sound-presets', JSON.stringify(presets));
+    };
+
+    const handleSavePreset = () => {
+        if (activeSounds.size === 0) return;
+        const name = presetName.trim() || `감성 ${soundPresets.length + 1}`;
+        const preset = {
+            id: Date.now(),
+            name,
+            sounds: [...activeSounds],
+            volumes: { ...mixerVolumes },
+        };
+        savePresets([...soundPresets, preset]);
+        setPresetName('');
+    };
+
+    const handleLoadPreset = (preset) => {
+        // 모든 소리 정지 후 프리셋 적용
+        mixerAudios.current.forEach(audio => { audio.pause(); audio.currentTime = 0; });
+        const newActive = new Set(preset.sounds);
+        const newVolumes = { ...preset.volumes };
+        setActiveSounds(newActive);
+        setMixerVolumes(newVolumes);
+        // 오디오 재생
+        preset.sounds.forEach(sound => {
+            let audio = mixerAudios.current.get(sound);
+            if (!audio) {
+                audio = new Audio(getAudioUrl(sound));
+                audio.loop = true;
+                mixerAudios.current.set(sound, audio);
+            }
+            audio.volume = newVolumes[sound] ?? 0.5;
+            audio.play().catch(() => { });
+        });
+    };
+
+    const handleDeletePreset = (id) => {
+        savePresets(soundPresets.filter(p => p.id !== id));
+    };
 
     // 서버에서 환경음 목록 가져오기
     useEffect(() => {
@@ -589,6 +637,69 @@ export default function PomodoroTimer({
                             ))}
                         </div>
                     )}
+
+                    {/* 🎧 사운드 프리셋 */}
+                    <div className={`mt-3 pt-3 border-t ${timerMode === 'work' ? 'border-white/5' : 'border-teal-500/20'}`}>
+                        <div className={`text-[10px] font-bold mb-2 ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
+                            🎧 나만의 감성 프리셋
+                        </div>
+
+                        {/* 저장 입력 */}
+                        {activeSounds.size > 0 && (
+                            <div className="flex gap-1.5 mb-2">
+                                <input
+                                    type="text"
+                                    placeholder="프리셋 이름 (예: 비 오는 밤의 서재)"
+                                    value={presetName}
+                                    onChange={(e) => setPresetName(e.target.value)}
+                                    className={`flex-1 px-2.5 py-1.5 rounded-lg text-[11px] outline-none transition-colors
+                                        ${timerMode === 'work' ? 'bg-slate-800/70 text-slate-200 placeholder-slate-500' : 'bg-teal-800/50 text-teal-100 placeholder-teal-300/40'}
+                                    `}
+                                />
+                                <button
+                                    onClick={handleSavePreset}
+                                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all
+                                        ${timerMode === 'work' ? 'bg-emerald-500/80 text-white hover:bg-emerald-500' : 'bg-teal-200 text-teal-800 hover:bg-teal-100'}
+                                    `}
+                                >
+                                    <Save className="w-3 h-3" /> 저장
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 프리셋 리스트 */}
+                        {soundPresets.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                                {soundPresets.map(preset => (
+                                    <div key={preset.id} className={`flex items-center gap-1.5 p-1.5 rounded-lg text-[11px] group
+                                        ${timerMode === 'work' ? 'bg-slate-800/40 hover:bg-slate-700/50' : 'bg-teal-800/30 hover:bg-teal-700/40'}
+                                    `}>
+                                        <button
+                                            onClick={() => handleLoadPreset(preset)}
+                                            className={`flex-1 text-left font-medium cursor-pointer truncate
+                                                ${timerMode === 'work' ? 'text-slate-300 hover:text-white' : 'text-teal-100 hover:text-white'}
+                                            `}
+                                        >
+                                            🎧 {preset.name}
+                                            <span className={`ml-1.5 text-[9px] ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-300/50'}`}>
+                                                ({preset.sounds.length}개 소리)
+                                            </span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeletePreset(preset.id)}
+                                            className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 cursor-pointer transition-opacity"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className={`text-[10px] text-center py-1 ${timerMode === 'work' ? 'text-slate-600' : 'text-teal-300/40'}`}>
+                                소리를 재생한 후 저장해보세요!
+                            </p>
+                        )}
+                    </div>
 
                     {/* 로파이 볼륨 */}
                     {playlist.length > 0 && (

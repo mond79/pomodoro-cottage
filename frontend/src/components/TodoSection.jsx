@@ -1,13 +1,50 @@
-import { PenTool, CheckSquare, Plus, CheckCircle2, Trash2, CalendarDays, MapPin, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { PenTool, CheckSquare, Plus, CheckCircle2, Trash2, CalendarDays, MapPin, Clock, Sparkles, Loader2 } from 'lucide-react';
 import { CATEGORIES } from '../constants';
 import { formatYMD } from '../utils/dateHelpers';
+import { generateDailySummary } from '../utils/api';
 
 export default function TodoSection({
     selectedDate, diaries, saveDiary,
     todos, addTodo, toggleTodo, deleteTodo, newTodo, setNewTodo, celebratingId,
     searchQuery, displayedEvents, deleteEvent,
-    setNewEventDate, setShowAddModal
+    setNewEventDate, setShowAddModal,
+    pomoSessions, currentMood, weatherData
 }) {
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    // 📝 AI 하루 요약 생성
+    const handleAISummary = async () => {
+        if (isGenerating) return;
+        setIsGenerating(true);
+        try {
+            const dateStr = formatYMD(selectedDate);
+            const todaySessions = (pomoSessions || []).filter(s => s.date === dateStr);
+            const weatherDesc = weatherData?.weather?.[0]?.description || '';
+
+            const result = await generateDailySummary({
+                tomatoes: todaySessions.length,
+                sessions: todaySessions,
+                todos: todos || [],
+                mood: currentMood || '클래식',
+                weather: weatherDesc,
+                diary: diaries[dateStr] || '',
+            });
+
+            if (result.summary) {
+                const existing = diaries[dateStr] || '';
+                const divider = existing ? '\n\n--- 📝 AI 요약 ---\n' : '📝 AI 요약\n';
+                saveDiary(existing + divider + result.summary);
+            } else {
+                alert(result.error || 'AI 요약 생성에 실패했어요.');
+            }
+        } catch (err) {
+            alert('AI 요약 생성 중 오류가 발생했어요.');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     return (
         <>
             {/* Daily Retrospective (오늘의 항해 일지) */}
@@ -22,6 +59,22 @@ export default function TodoSection({
                     value={diaries[formatYMD(selectedDate)] || ''}
                     onChange={(e) => saveDiary(e.target.value)}
                 />
+                <button
+                    onClick={handleAISummary}
+                    disabled={isGenerating}
+                    className={`mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer
+                        ${isGenerating
+                            ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-400 cursor-wait'
+                            : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30 hover:scale-[1.02] active:scale-95'
+                        }
+                    `}
+                >
+                    {isGenerating ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> AI가 오두막의 기억을 쓰고 있어요...</>
+                    ) : (
+                        <><Sparkles className="w-4 h-4" /> 📝 AI 하루 요약 쓰기</>
+                    )}
+                </button>
             </div>
 
             {/* Daily To-Do 🎉 폭죽 애니메이션 추가됨 */}

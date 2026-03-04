@@ -365,6 +365,85 @@ def not_found(e):
     return error_msg, 404
 
 # ==========================================================
+#         📝 Gemini AI 하루 요약 (gemini-3.1-flash-lite)
+# ==========================================================
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+@app.route('/api/daily-summary', methods=['POST'])
+def daily_summary():
+    """오늘의 공부 데이터를 기반으로 Gemini AI가 따뜻한 하루 요약을 생성합니다."""
+    if not GEMINI_API_KEY:
+        return jsonify({'error': 'GEMINI_API_KEY가 설정되지 않았습니다.'}), 500
+
+    try:
+        data = request.json or {}
+        tomatoes = data.get('tomatoes', 0)
+        sessions = data.get('sessions', [])
+        todos = data.get('todos', [])
+        mood = data.get('mood', '클래식')
+        weather = data.get('weather', '')
+        diary = data.get('diary', '')
+
+        # 세션 요약 생성
+        session_text = ''
+        if sessions:
+            subjects = {}
+            for s in sessions:
+                name = s.get('subjectName', '공부')
+                subjects[name] = subjects.get(name, 0) + 1
+            session_text = ', '.join([f'{name} {count}회' for name, count in subjects.items()])
+
+        # 할 일 요약
+        completed_todos = [t['text'] for t in todos if t.get('completed')]
+        pending_todos = [t['text'] for t in todos if not t.get('completed')]
+
+        prompt = f"""당신은 따뜻하고 감성적인 오두막 주인입니다. 사용자의 하루 공부 데이터를 보고, 
+짧지만 마음이 따뜻해지는 한국어 일기체 요약을 3~4문장으로 작성해주세요.
+과하게 칭찬하지 말고, 자연스럽고 진심 어린 톤으로 써주세요.
+이모지를 적절히 1~2개 사용해주세요.
+
+오늘의 데이터:
+- 수확한 토마토: {tomatoes}개
+- 공부 내용: {session_text or '기록 없음'}
+- 완료한 할 일: {', '.join(completed_todos) if completed_todos else '없음'}
+- 남은 할 일: {', '.join(pending_todos) if pending_todos else '없음'}
+- 오두막 테마: {mood}
+- 날씨: {weather or '정보 없음'}
+- 사용자가 쓴 일기: {diary or '아직 안 씀'}
+
+위 데이터를 바탕으로 따뜻한 하루 요약을 써주세요. 반드시 한국어로만 작성하세요."""
+
+        # Gemini API 호출 (gemini-3.1-flash-lite-preview)
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={GEMINI_API_KEY}"
+        
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.8,
+                "maxOutputTokens": 256
+            }
+        }
+
+        resp = requests.post(api_url, json=payload, timeout=15)
+        
+        if resp.status_code != 200:
+            print(f"Gemini API error: {resp.status_code} - {resp.text}")
+            return jsonify({'error': f'Gemini API 오류: {resp.status_code}'}), 500
+
+        result = resp.json()
+        summary_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+
+        if not summary_text:
+            return jsonify({'error': '요약 생성에 실패했습니다.'}), 500
+
+        return jsonify({'summary': summary_text.strip()})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# ==========================================================
 #                    서버 실행
 # ==========================================================
 

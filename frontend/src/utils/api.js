@@ -121,3 +121,22 @@ export async function fetchWeather(lat, lon) {
         return null;
     }
 }
+
+/**
+ * Gemini AI 하루 요약 생성하기
+ */
+export async function generateDailySummary(data) {
+    try {
+        const res = await fetch(`${API_BASE}/api/daily-summary`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('AI 요약 생성 실패');
+        return await res.json();
+    } catch (err) {
+        console.error('Daily summary failed:', err.message);
+        return { error: err.message };
+    }
+}

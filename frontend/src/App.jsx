@@ -595,6 +595,7 @@ export default function App() {
                 todos={todos} addTodo={addTodo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} newTodo={newTodo} setNewTodo={setNewTodo} celebratingId={celebratingId}
                 searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
                 setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
+                pomoSessions={pomoSessions} currentMood={currentMood} weatherData={weatherData}
               />
             </div>
           </main>
