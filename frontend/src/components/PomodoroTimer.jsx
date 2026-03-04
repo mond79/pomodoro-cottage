@@ -138,7 +138,11 @@ export default function PomodoroTimer({
             mixerAudios.current.set(defaultSound, audio);
         }
         audio.volume = mixerVolumes[defaultSound] ?? 0.5;
-        audio.play().catch(e => console.log('Auto-play prevented:', e));
+
+        // 브라우저 정책상 첫 인터랙션 전 자동 재생은 차단될 수 있음
+        audio.play().catch(() => {
+            console.log(`[Cottage] '${defaultSound}' 자동 재생이 차단되었습니다. 사용자의 클릭이 필요합니다.`);
+        });
         setActiveSounds(new Set([defaultSound]));
     }, [currentMood, defaultSound]);
 

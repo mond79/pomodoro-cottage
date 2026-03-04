@@ -102,7 +102,7 @@ export default function Header({
                 {weatherData && (
                     <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:scale-105 cursor-default">
                         <img
-                            src={`http://openweathermap.org/img/wn/${weatherData.icon}.png`}
+                            src={`https://openweathermap.org/img/wn/${weatherData.icon}.png`}
                             alt={weatherData.description}
                             className="w-8 h-8 -my-1"
                         />
