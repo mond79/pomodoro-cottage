@@ -10,7 +10,40 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'img/*.png', 'img/*.webp'],
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\/ambient-sounds/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ambient-sounds-list-cache',
+              expiration: {
+                maxEntries: 5,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7일
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^\/api\/audio\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ambient-audio-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30일
+              },
+              cacheableResponse: {
+                statuses: [0, 200, 206] // 오디오 스트리밍 응답(206 부분 콘텐츠) 허용
+              }
+            }
+          }
+        ]
+      },
       manifest: {
         name: 'Mond Cottage',
         short_name: 'Cottage',
