@@ -87,6 +87,9 @@ export default function App() {
   ]);
   const [newTodo, setNewTodo] = useState('');
 
+  // 마지막 접속 날짜 상태 추가
+  const [lastActiveDate, setLastActiveDate] = useLocalStorage('gplanner-last-date', formatYMD(new Date()));
+
   const [events, setEvents] = useLocalStorage('gplanner-events', []);
 
   // Google Calendar 연동 상태
@@ -98,8 +101,19 @@ export default function App() {
 
   // --- Effects ---
 
-  // 앱 시작 시 Flask 백엔드에서 구글 로그인 상태 확인 및 로컬 플레이리스트/할 일 로드
+  // 앱 시작 시: 구글 로그인 상태 확인, 로컬 데이터 로드 및 💡 날짜 변경(자정 넘김) 초기화
   useEffect(() => {
+    // 1. 날짜 변경 감지 로직 (자정이 지났으면 할 일 비우기)
+    const todayStr = formatYMD(new Date());
+    if (lastActiveDate !== todayStr) {
+      console.log('🌅 새로운 날이 밝았습니다! 할 일 목록을 정리합니다.');
+      // 어제 완료된(또는 모든) 할 일을 지우고 새로운 시작을 준비 (옵션: 완료되지 않은 것만 남길 수도 있음)
+      // 여기서는 사용자의 요청에 따라 모든 할 일을 비우거나 초기 상태로 되돌립니다.
+      setTodos([]);
+      setLastActiveDate(todayStr); // 오늘 날짜로 갱신
+    }
+
+    // 2. 백엔드 상태 확인 및 초기 데이터 로드
     fetchStatus().then(data => {
       setIsGoogleLoggedIn(data.is_logged_in);
 
