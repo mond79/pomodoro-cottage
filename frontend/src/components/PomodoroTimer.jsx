@@ -80,9 +80,15 @@ export default function PomodoroTimer({
         fetchAmbientSounds().then(data => {
             if (data.sounds && data.sounds.length > 0) {
                 setServerSounds(data.sounds);
-                // 각 소리의 기본 볼륨 초기화
+                // 각 소리의 기본 볼륨 초기화 및 PWA 오프라인용 프리로드
                 const defaultVols = {};
-                data.sounds.forEach(s => { defaultVols[s] = 0.5; });
+                data.sounds.forEach(s => {
+                    defaultVols[s] = 0.5;
+
+                    // 💡 PWA 우회 기법: <audio>의 Range(206) 요청은 Workbox 캐싱이 불안정하므로
+                    // 일반 fetch(200)로 백그라운드에서 다운로드하여 서비스 워커 캐시에 강제로 온전히 밀어넣음
+                    fetch(getAudioUrl(s)).catch(() => { });
+                });
                 setMixerVolumes(prev => ({ ...defaultVols, ...prev }));
             }
         });
