@@ -184,7 +184,8 @@ export default function PomodoroTimer({
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
         speechTimeoutRef.current = setTimeout(() => setSpeechBubble(null), 5000);
 
-    }, [weatherData, isAutoBGMEnabled, activeSounds]); // activeSounds 추가
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [weatherData, isAutoBGMEnabled]); // activeSounds 제거 (수동 조작 시 AI가 방해하지 않도록)
 
     // 💡 (기존) 테마 변경 시 환경음 자동 교체 (AI 자동화가 켜져있을 땐 무시하고 AI를 따름)
     useEffect(() => {
@@ -207,7 +208,8 @@ export default function PomodoroTimer({
             console.log(`[Cottage] '${defaultSound}' 자동 재생이 차단되었습니다. 사용자의 클릭이 필요합니다.`);
         });
         setActiveSounds(new Set([defaultSound]));
-    }, [currentMood, defaultSound, isAutoBGMEnabled, mixerVolumes]); // 의존성 배열 추가
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentMood, defaultSound]); // isAutoBGMEnabled, mixerVolumes 제거 (볼륨 조절 시 리셋 방지)
 
     // 🎧 전체 정지/재생
     const toggleAllAmbient = () => {
