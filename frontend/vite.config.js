@@ -17,8 +17,8 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/authorize/, /^\/oauth2callback/], // 백엔드 API 라우트 가로채기 방지
         runtimeCaching: [
           {
-            urlPattern: /^\/api\/ambient-sounds/,
-            handler: 'CacheFirst',
+            urlPattern: /\/api\/ambient-sounds/i,
+            handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'ambient-sounds-list-cache',
               expiration: {
@@ -31,7 +31,7 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^\/api\/audio\/.*/,
+            urlPattern: /\/api\/audio\//i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'ambient-audio-cache',
@@ -41,7 +41,8 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200, 206] // 오디오 스트리밍 응답(206 부분 콘텐츠) 허용
-              }
+              },
+              rangeRequests: true // HTML5 <audio> 태그의 Range 요청을 캐시에서 처리하도록 허용 (매우 중요)
             }
           }
         ]
