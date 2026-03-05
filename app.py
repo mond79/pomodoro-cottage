@@ -332,9 +332,10 @@ def add_event():
 #                    정적 파일 및 SPA 라우팅
 # ==========================================================
 
-# 1. 정적 파일(JS, CSS, 이미지 등) 서빙
+# 1. 정적 파일(JS, CSS, 이미지, PWA 워커 등) 서빙
 @app.route('/<path:filename>')
 def serve_static(filename):
+    # 루트에 있는 파일들 (vite.svg, sw.js, manifest.webmanifest 등) 우선 확인
     if os.path.exists(os.path.join(app.static_folder, filename)):
         return send_from_directory(app.static_folder, filename)
     flask.abort(404)
