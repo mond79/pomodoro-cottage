@@ -9,7 +9,7 @@ import PomoHeatmap from './components/PomoHeatmap';
 import Modals from './components/Modals';
 
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS, MOODS } from './constants';
+import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS, MOODS, SEASONS } from './constants';
 import { formatYMD, parseYMD, generateId, formatDDay } from './utils/dateHelpers';
 import {
   fetchStatus, redirectToGoogleLogin, redirectToLogout,
@@ -55,6 +55,7 @@ export default function App() {
   const [pomoSessions, setPomoSessions] = useLocalStorage('gplanner-sessions', []);
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
+  const [showParcel, setShowParcel] = useState(false); // 🎁 소포(알림) 모달 상태
 
   const audioRef = useRef(null);
   const [playlist, setPlaylist] = useState([]); // [{ name: string, url: string }]
@@ -194,14 +195,16 @@ export default function App() {
           });
         }
 
-        // 알림음 재생 🔔
+        // 알림음 재생 및 모달 활성화 🔔
         playNotificationSound();
+        setShowParcel(true);
 
         setTimerMode('rest');
         setPomoTime(10 * 60);
       } else {
-        // 알림음 재생 🔔
+        // 알림음 재생 및 모달 활성화 🔔
         playNotificationSound();
+        setShowParcel(true);
 
         setTimerMode('work');
         setPomoTime(pomoDuration * 60);
@@ -483,6 +486,17 @@ export default function App() {
   const selectedDateTomatoes = useMemo(() => pomoHistory[formatYMD(selectedDate)] || 0, [pomoHistory, selectedDate]);
 
   const currentMoodData = MOODS[currentMood] || MOODS.classic;
+
+  // 💡 Phase 16: 현재 월(Month) 기반 계절 배경화면 가져오기
+  const currentSeasonImage = useMemo(() => {
+    const month = new Date().getMonth() + 1; // 1~12
+    const seasonKey = Object.keys(SEASONS).find(key => SEASONS[key].months.includes(month));
+    return seasonKey ? SEASONS[seasonKey].image : currentMoodData.bgImage;
+  }, []);
+
+  // 'classic' 테마일 경우 계절 이미지로 교체, 그 외는 설정된 테마의 bgImage 사용
+  const displayBgImage = currentMood === 'classic' ? currentSeasonImage : currentMoodData.bgImage;
+
   const aiGreeting = useMemo(() =>
     generateCottageGreeting(streakData.streak, selectedDateTomatoes, currentMoodData, timerMode === 'work'),
     [streakData.streak, selectedDateTomatoes, currentMoodData, timerMode]);
@@ -500,7 +514,7 @@ export default function App() {
     <div className={`${isDarkMode ? 'dark' : ''} min-h-screen font-sans selection:bg-blue-200`}>
       <div
         className="min-h-screen bg-cover bg-center bg-fixed transition-all duration-1000 relative flex flex-col"
-        style={{ backgroundImage: currentMoodData.bgImage ? `url('${currentMoodData.bgImage}')` : 'none' }}
+        style={{ backgroundImage: displayBgImage ? `url('${displayBgImage}')` : 'none' }}
       >
         {/* 그라데이션 오버레이 (약하게) */}
         <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-1000 opacity-30 dark:opacity-50 ${appBgClasses} pointer-events-none`}></div>
@@ -602,6 +616,8 @@ export default function App() {
                 todos={todos} toggleTodo={toggleTodo}
                 playlist={playlist} currentTrackIdx={currentTrackIdx} isPlayingAudio={isPlayingAudio} toggleAudio={toggleAudio} handleAudioUpload={handleAudioUpload} audioRef={audioRef}
                 playTrack={playTrack} removeTrack={removeTrack} setPlaylist={setPlaylist} setIsPlayingAudio={setIsPlayingAudio} setCurrentTrackIdx={setCurrentTrackIdx}
+                showParcel={showParcel} setShowParcel={setShowParcel}
+                weatherData={weatherData}
               />
 
               <TodoSection

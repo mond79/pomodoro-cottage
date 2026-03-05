@@ -98,17 +98,27 @@ export default function Header({
                     </button>
                 )}
 
-                {/* ☁️ 실시간 날씨 */}
+                {/* ☁️ 실시간 날씨 (Glassmorphism 적용) */}
                 {weatherData && (
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:scale-105 cursor-default">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl shadow-sm transition-all hover:scale-105 cursor-default
+                                    ${currentMood === 'classic' || isDarkMode ? 'bg-black/30 backdrop-blur-md border border-white/10 text-white' : 'bg-white/50 backdrop-blur-md border border-white/40 text-slate-800'}`}>
                         <img
                             src={`https://openweathermap.org/img/wn/${weatherData.icon}.png`}
                             alt={weatherData.description}
-                            className="w-8 h-8 -my-1"
+                            className="w-10 h-10 -my-2 drop-shadow-md"
                         />
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 leading-none">{weatherData.city}</span>
-                            <span className="text-xs font-black text-slate-700 dark:text-slate-300">{Math.round(weatherData.temp)}°C</span>
+                        <div className="flex flex-col py-0.5">
+                            <span className={`text-[10px] font-bold leading-none ${currentMood === 'classic' || isDarkMode ? 'text-white/70' : 'text-slate-500'}`}>
+                                {weatherData.city}
+                            </span>
+                            <div className="flex items-baseline gap-1">
+                                <span className={`text-sm font-black ${currentMood === 'classic' || isDarkMode ? 'text-white' : 'text-slate-700'}`}>
+                                    {Math.round(weatherData.temp)}°C
+                                </span>
+                                <span className={`text-[9px] font-medium hidden sm:inline ${currentMood === 'classic' || isDarkMode ? 'text-white/60' : 'text-slate-400'}`}>
+                                    {weatherData.description}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 )}

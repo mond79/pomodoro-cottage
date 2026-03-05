@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Headphones, Music, Volume2, Save, Trash2 } from 'lucide-react';
 import { formatYMD } from '../utils/dateHelpers';
 import { fetchAmbientSounds, getAudioUrl } from '../utils/api';
+import { GARDEN_STAGES, BGM_PRESETS } from '../constants';
 
 export default function PomodoroTimer({
     themeBg, currentMood, defaultSound,
@@ -12,13 +13,18 @@ export default function PomodoroTimer({
     pomoSessions,
     todos, toggleTodo,
     playlist, currentTrackIdx, isPlayingAudio, toggleAudio, handleAudioUpload, audioRef,
-    playTrack, removeTrack, setPlaylist, setIsPlayingAudio, setCurrentTrackIdx
+    playTrack, removeTrack, setPlaylist, setIsPlayingAudio, setCurrentTrackIdx,
+    showParcel, setShowParcel,
+    weatherData
 }) {
     // === 🎧 감성 사운드 믹서 (다중 동시 재생) ===
     const [serverSounds, setServerSounds] = useState([]);
     const [activeSounds, setActiveSounds] = useState(new Set()); // 현재 재생 중인 소리 파일명 Set
     const [mixerVolumes, setMixerVolumes] = useState({}); // { filename: volume(0~1) }
     const mixerAudios = useRef(new Map()); // Map<filename, HTMLAudioElement>
+
+    // === 🤖 AI 환경음 자동화 ===
+    const [isAutoBGMEnabled, setIsAutoBGMEnabled] = useState(true);
 
     // === 🐱 식구 말풍선 ===
     const [speechBubble, setSpeechBubble] = useState(null); // { emoji, name, message }
@@ -52,6 +58,7 @@ export default function PomodoroTimer({
     };
 
     const handleLoadPreset = (preset) => {
+        setIsAutoBGMEnabled(false); // 수동(프리셋) 로드 시 자동화 중지
         // 모든 소리 정지 후 프리셋 적용
         mixerAudios.current.forEach(audio => { audio.pause(); audio.currentTime = 0; });
         const newActive = new Set(preset.sounds);
@@ -101,6 +108,7 @@ export default function PomodoroTimer({
 
     // 🎚️ 개별 소리 토글 (클릭하면 재생/정지)
     const toggleMixerSound = (filename) => {
+        setIsAutoBGMEnabled(false); // 수동 조작 시 자동화 중지
         const audioMap = mixerAudios.current;
 
         if (activeSounds.has(filename)) {
@@ -124,14 +132,64 @@ export default function PomodoroTimer({
 
     // 🎚️ 개별 볼륨 변경
     const changeMixerVolume = (filename, vol) => {
+        setIsAutoBGMEnabled(false); // 수동 조작 시 자동화 중지
         setMixerVolumes(prev => ({ ...prev, [filename]: vol }));
         const audio = mixerAudios.current.get(filename);
         if (audio) audio.volume = vol;
     };
 
-    // 💡 테마(currentMood) 변경 시 환경음 자동 교체
+    // 🤖 AI BGM 추천 렌더링 효과 (날씨 및 상태 변화 시)
     useEffect(() => {
-        if (!defaultSound) return;
+        if (!isAutoBGMEnabled || !weatherData) return;
+
+        const hour = new Date().getHours();
+        const mainWeather = weatherData.weather?.[0]?.main || 'Clear';
+
+        let targetPreset = BGM_PRESETS.find(p => p.condition(mainWeather, hour));
+        if (!targetPreset) targetPreset = BGM_PRESETS[BGM_PRESETS.length - 1]; // Fallback
+
+        // 이미 목표 프리셋과 완전히 같은 사운드가 재생 중이라면 불필요한 재재생 방지
+        const currentActive = Array.from(activeSounds);
+        const presetSounds = targetPreset.sounds;
+        if (currentActive.length === presetSounds.length && presetSounds.every(s => currentActive.includes(s))) {
+            return;
+        }
+
+        console.log(`[AI BGM] '${targetPreset.name}' 프리셋을 적용합니다. (날씨: ${mainWeather}, 시간: ${hour}시)`);
+
+        // 기존 사운드 모두 정지
+        mixerAudios.current.forEach(audio => { audio.pause(); audio.currentTime = 0; });
+
+        const newActive = new Set(presetSounds);
+        const newVolumes = { ...targetPreset.volumes };
+
+        setActiveSounds(newActive);
+        setMixerVolumes(prev => ({ ...prev, ...newVolumes }));
+
+        // 새 사운드 재생
+        presetSounds.forEach(sound => {
+            let audio = mixerAudios.current.get(sound);
+            if (!audio) {
+                audio = new Audio(getAudioUrl(sound));
+                audio.loop = true;
+                mixerAudios.current.set(sound, audio);
+            }
+            audio.volume = newVolumes[sound] ?? 0.5;
+            audio.play().catch(() => {
+                console.log(`[AI BGM] 브라우저 정책으로 인해 자동 재생이 대기 중입니다.`);
+            });
+        });
+
+        // 봇 말풍선으로 알려주기
+        setSpeechBubble({ emoji: '✨', name: '오두막 AI', message: targetPreset.message });
+        if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
+        speechTimeoutRef.current = setTimeout(() => setSpeechBubble(null), 5000);
+
+    }, [weatherData, isAutoBGMEnabled, activeSounds]); // activeSounds 추가
+
+    // 💡 (기존) 테마 변경 시 환경음 자동 교체 (AI 자동화가 켜져있을 땐 무시하고 AI를 따름)
+    useEffect(() => {
+        if (!defaultSound || isAutoBGMEnabled) return;
 
         // 모든 현재 재생 중인 소리 정지
         mixerAudios.current.forEach((audio) => { audio.pause(); audio.currentTime = 0; });
@@ -150,10 +208,11 @@ export default function PomodoroTimer({
             console.log(`[Cottage] '${defaultSound}' 자동 재생이 차단되었습니다. 사용자의 클릭이 필요합니다.`);
         });
         setActiveSounds(new Set([defaultSound]));
-    }, [currentMood, defaultSound]);
+    }, [currentMood, defaultSound, isAutoBGMEnabled, mixerVolumes]); // 의존성 배열 추가
 
     // 🎧 전체 정지/재생
     const toggleAllAmbient = () => {
+        setIsAutoBGMEnabled(false);
         if (activeSounds.size > 0) {
             // 모두 정지
             mixerAudios.current.forEach((audio, filename) => {
@@ -180,57 +239,64 @@ export default function PomodoroTimer({
         // 식구별 상황 맞춤 메시지 풀
         const messagePool = {
             '🐛': [
-                `꿈틀꿈틀~ ${subjectName} 화이팅!`,
-                '열심히 하는 모습이 멋져!',
-                todayCount > 0 ? `오늘 벌써 ${todayCount}개나!` : '첫 토마토를 기다리고 있어~',
+                `꿈틀꿈틀~ ${subjectName} 화이팅! 🌱`,
+                '토마토 잎사귀는 정말 맛있는 냄새가 나!',
+                todayCount > 0 ? `오늘 벌써 ${todayCount}개나 수확했네! 🍅` : '아직 흙이 차가워, 어서 씨앗을 심자!',
+                timerMode === 'rest' ? '나도 낙엽 밑에서 쉬고 있어~' : '조용히 응원할게, 사각사각...',
             ],
             '🦋': [
-                `팔랑팔랑~ ${subjectName} 잘 되고 있어?`,
-                hour < 12 ? '아침부터 열심이구나! ☀️' : '오후에도 파이팅! 🌙',
-                todayCount >= 3 ? '날개가 더 빛나는 것 같아!' : '꽃 향기 따라 왔어~',
+                `팔랑팔랑~ ${subjectName} 재밌어 보여! ✨`,
+                hour < 12 ? '아침부터 예쁜 꽃을 찾아왔어! ☀️' : '오후의 햇살이 참 따뜻해 🌼',
+                todayCount >= 3 ? '네 열정에 날개가 더 빛나는 것 같아! 🦋' : '꽃 향기 따라 여기까지 왔는걸~',
+                '잠깐 하늘을 보면서 기지개를 켜는 건 어때?',
             ],
             '🐦': [
-                `짹짹! ${subjectName} 공부하는 거야?`,
-                todayCount >= 5 ? `와, 벌써 ${todayCount}개 수확이야!` : '토마토가 익기를 기다리는 중~',
-                hour >= 17 ? '노을이 예뻐서 놀러 왔어!' : '지붕 위가 제일 경치가 좋아!',
+                `짹짹! 오늘따라 ${subjectName} 책이 술술 넘어가네? 🎶`,
+                todayCount >= 5 ? `와, 벌써 ${todayCount}개 수확이야! 대풍년 둥지다 짹! 🎉` : '토마토가 빨갛게 익기를 얌전히 기다리는 중~',
+                hour >= 17 ? '노을 질 때 지붕 위가 젤 멋지다구 짹!' : '오늘 벌레 사냥은 성공적이야!',
+                timerMode === 'work' ? '집중하는 눈빛이 독수리 같은데?! 🦅' : '노래 한 곡 뽑아줄까? 짹짹🎵',
             ],
             '🐱': [
-                `야옹~ ${subjectName} 열심히 하네?`,
-                todayCount >= 3 ? `${todayCount}개나 수확하다니 대단해!` : '냥냥, 잠깐 쉬어도 괜찮아~',
-                timerMode === 'work' ? '집중하는 모습이 멋져~ 야옹' : '휴식 시간에는 기지개를 켜봐!',
-                hour >= 22 ? '밤늦게까지 고생이야~ 야옹' : '오늘도 함께해서 좋아!',
+                `야옹~ 집사, ${subjectName} 열심히 하네? 🐾`,
+                todayCount >= 3 ? `${todayCount}개나 수확하다니 츄르 줘도 되겠다 냥냥! 🐟` : '냥냥, 무리하지 말고 내 옆에서 잠깐 쉬어~',
+                timerMode === 'work' ? '방해 안 할 테니까 집중해 봐~ (식빵 굽기) 🍞' : '스다듬어도 좋아... 골골골 🐈',
+                hour >= 22 ? '밤늦게까지 고생이네... 나도 졸리다 하품 🥱' : '오늘 하루도 잘 부탁해 집사!',
             ],
             '📚': [
-                `${subjectName} 책을 펼쳤구나!`,
-                '지식이 차곡차곡 쌓이고 있어!',
-                todayCount >= 5 ? '책장이 꽉 찰 것 같아!' : '한 장 한 장 넘기다 보면~',
+                `${subjectName} 마법서(?)를 펼쳤구나! 📖`,
+                '한 글자 한 글자 너의 지식이 되어 쌓이고 있어.',
+                todayCount >= 5 ? '이 기세라면 오두막이 도서관이 될지도 몰라! 🏛️' : '모르는 게 있으면 언제든 페이지를 넘겨봐.',
             ],
             '🕯️': [
-                '따뜻한 불빛 아래서 공부하니 좋지?',
-                `${subjectName}, 촛불처럼 꾸준히 밝혀봐!`,
-                hour >= 20 ? '밤의 촛불은 더 따뜻해...' : '마음이 차분해지는 시간',
+                '따뜻한 불빛 아래서 공부하니까 마음이 차분해지지? 🕯️',
+                `${subjectName}, 촛불처럼 은은하게, 하지만 꾸준히 밝혀봐!`,
+                hour >= 20 ? '밤에 켜는 촛불은 생각의 깊이를 더해줘...' : '꺼지지 않게 바람을 막아줄게.',
             ],
             '🔥': [
-                '활활! 열정이 타오르고 있어!',
-                `${subjectName}에 불을 지펴요! 🔥`,
-                todayCount >= 8 ? '벽난로만큼 뜨거운 열정!' : '따뜻하게 데워줄게~',
+                '타닥, 타닥... 장작 타는 소리 좋아해? 🔥',
+                `${subjectName}에 향한 열정이 불꽃보다 뜨거워!`,
+                todayCount >= 8 ? '우와! 벽난로가 폭발할 것 같은 열의야! 🌋' : '언제나 널 따뜻하게 데워줄게.',
             ],
             '🌈': [
-                '비가 그치면 무지개가 뜨듯이!',
-                `${subjectName}도 곧 빛날 거야!`,
-                '오두막 위의 무지개처럼 빛나는 하루!',
+                '비 온 뒤에는 항상 내가 뜨는 법이지! 🌈',
+                `오늘 하루의 끝에 ${subjectName}의 무지개가 뜰 거야! ✨`,
+                '오두막 위에서 널 내려다보고 있어. 정말 예뻐!',
             ],
             '⭐': [
-                '오두막의 가장 빛나는 별! ⭐',
-                `${subjectName} 마스터가 되는 그 날까지!`,
-                todayCount >= 10 ? '오늘 정말 별처럼 빛났어!' : '별이 응원하고 있어!',
+                '오늘의 주인공, 가장 빛나는 별! ⭐',
+                `${subjectName} 마스터가 되는 그 날까지 밤하늘에서 응원할게!`,
+                todayCount >= 10 ? '은하수보다 네가 이룬 오늘이 더 아름다워! 🌌' : '별똥별에 소원 빌었어? 분명 이루어질 거야.',
             ],
         };
 
-        const pool = messagePool[creature.emoji] || [`${creature.name}이(가) 인사해요!`];
-        const randomMsg = pool[Math.floor(Math.random() * pool.length)];
+        const pool = messagePool[creature.emoji] || [`${creature.name}(이)가 인사해요!`];
 
-        // 이전 타이머 정리 후 새 말풍선
+        // 렌더링 중이 아닌, 이벤트 핸들러 내부에서 호출되므로 Math.random()은 안전합니다.
+        // 다만 불필요한 의존성 경고 회피를 위해 명시적으로 변수화합니다.
+        const randomIndex = Math.floor(Math.random() * pool.length);
+        const randomMsg = pool[randomIndex];
+
+        // 이전 타이머 정리 후 말풍선 띄우기말풍선
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
         setSpeechBubble({ emoji: creature.emoji, name: creature.name, message: randomMsg });
         speechTimeoutRef.current = setTimeout(() => setSpeechBubble(null), 3500);
@@ -348,39 +414,58 @@ export default function PomodoroTimer({
                     </div>
                 </div>
 
-                {/* 🪴 오두막 정원 & 🐱 오두막 식구 */}
-                <div className={`mb-4 p-3 rounded-xl border transition-colors ${timerMode === 'work' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-teal-600/30 border-teal-500/50'}`}>
-                    <div className={`text-[10px] font-bold mb-2 ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>🪴 나의 오두막 정원</div>
-                    {/* 오늘의 성장 */}
-                    <div className="flex items-end gap-1 justify-center min-h-[48px]">
-                        {(() => {
-                            const total = selectedDateTomatoes;
-                            const garden = [];
-                            const plants = [
-                                { min: 1, emoji: '🌱', label: '새싹' },
-                                { min: 3, emoji: '🌿', label: '풀' },
-                                { min: 5, emoji: '🪴', label: '화분' },
-                                { min: 7, emoji: '🌷', label: '튤립' },
-                                { min: 9, emoji: '🌹', label: '장미' },
-                                { min: 11, emoji: '🌻', label: '해바라기' },
-                                { min: 13, emoji: '🌲', label: '나무' },
-                                { min: 16, emoji: '🏡', label: '오두막' },
-                            ];
-                            if (total === 0) {
-                                return <span className={`text-xs italic ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200'}`}>토마토를 수확하면 정원이 자라나요...</span>;
-                            }
-                            plants.forEach(p => {
-                                if (total >= p.min) garden.push(p);
-                            });
-                            return garden.map((p, i) => (
-                                <span key={i} className="text-2xl transition-all duration-500 hover:scale-125 cursor-default" title={p.label}>
-                                    {p.emoji}
-                                </span>
-                            ));
-                        })()}
+                {/* 🪴 나의 오두막 미니 정원 (Phase 16: 실사 토마토 성장) */}
+                <div className={`mb-4 p-4 rounded-xl shadow-inner border transition-colors ${timerMode === 'work' ? 'bg-black/20 border-white/10' : 'bg-teal-900/30 border-teal-500/30'}`}>
+                    <div className={`text-[11px] font-black mb-3 text-center flex items-center justify-center gap-2 ${timerMode === 'work' ? 'text-slate-300' : 'text-teal-100'}`}>
+                        🪴 나의 미니 정원
                     </div>
+                    {(() => {
+                        const total = selectedDateTomatoes;
+                        // 현재 total이 요구 조건(requiredPomos)을 충족하는 단계 중 가장 높은 단계를 찾음
+                        const currentStage = [...GARDEN_STAGES].reverse().find(stage => total >= stage.requiredPomos) || GARDEN_STAGES[0];
+                        // 다음 단계 계산
+                        const nextStage = GARDEN_STAGES.find(stage => stage.requiredPomos > total);
 
-                    {/* 🐱 누적 성취도: 오두막 식구 */}
+                        return (
+                            <div className="flex flex-col items-center justify-center gap-3">
+                                {/* 성장하는 토마토 이미지 */}
+                                <div className="relative w-32 h-32 md:w-40 md:h-40 flex items-center justify-center bg-white/5 rounded-full overflow-hidden shadow-lg border border-white/10">
+                                    <img
+                                        src={currentStage.image}
+                                        alt={currentStage.name}
+                                        className="w-full h-full object-cover animate-[fadeIn_1s_ease-out] hover:scale-110 transition-transform duration-700 cursor-pointer"
+                                        title={currentStage.name}
+                                    />
+                                    <div className="absolute bottom-2 bg-black/60 px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow">
+                                        Lv.{currentStage.level} {currentStage.name.split(' (')[0]}
+                                    </div>
+                                </div>
+
+                                {/* 진행도 바 & 다음 단계 안내 */}
+                                {nextStage ? (
+                                    <div className="w-full max-w-[200px] flex flex-col items-center gap-1">
+                                        <div className="w-full h-1.5 bg-black/30 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full transition-all duration-1000 ${timerMode === 'work' ? 'bg-green-400' : 'bg-teal-300'}`}
+                                                style={{ width: `${Math.min(100, Math.max(5, (total / nextStage.requiredPomos) * 100))}%` }}
+                                            />
+                                        </div>
+                                        <div className={`text-[10px] font-medium ${timerMode === 'work' ? 'text-slate-400' : 'text-teal-200'}`}>
+                                            다음 단계까지 <b>{nextStage.requiredPomos - total}</b>🍅 남음
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className={`text-xs font-bold animate-pulse ${timerMode === 'work' ? 'text-yellow-400' : 'text-yellow-200'}`}>
+                                        ✨ 토마토 수확 완료! (최고 성장) ✨
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* 🐱 오두막 식구 (누적 달성도) */}
+                <div className={`mb-4 p-3 rounded-xl border transition-colors ${timerMode === 'work' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-teal-600/30 border-teal-500/50'}`}>
                     {(() => {
                         // pomoSessions 전체 길이 = 누적 토마토 수
                         const lifetimeTotal = pomoSessions?.length || 0;
@@ -519,6 +604,19 @@ export default function PomodoroTimer({
                                     {activeSounds.size}개 재생 중
                                 </span>
                             )}
+                            {/* AI BGM 버튼 */}
+                            <button
+                                onClick={() => setIsAutoBGMEnabled(true)}
+                                title="현재 날씨·시간에 맞는 환경음을 자동으로 골라줍니다"
+                                className={`flex items-center gap-1 px-2 py-0.5 ml-1 rounded-full text-[10px] font-bold transition-all cursor-pointer border
+                                    ${isAutoBGMEnabled
+                                        ? 'bg-yellow-400/20 text-yellow-300 border-yellow-400/50 shadow-[0_0_8px_rgba(250,204,21,0.3)]'
+                                        : (timerMode === 'work' ? 'bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-600' : 'bg-teal-800/50 text-teal-300 border-teal-700/50 hover:bg-teal-700/50')
+                                    }
+                                `}
+                            >
+                                <span>✨</span> AI 추천 {isAutoBGMEnabled && 'ON'}
+                            </button>
                         </div>
                         {activeSounds.size > 0 && (
                             <button
@@ -736,6 +834,39 @@ export default function PomodoroTimer({
                 </div>
 
             </div>
+
+            {/* 🎁 오두막 소포 팝업 모달 */}
+            {showParcel && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-2 border-white/20 shadow-[0_0_50px_rgba(255,255,255,0.1)] p-8 text-center animate-in zoom-in-90 slide-in-from-bottom-8 duration-500 cursor-pointer"
+                        onClick={() => setShowParcel(false)}>
+
+                        {/* 팝업 장식용 광원 효과 */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl" />
+
+                        <div className="relative z-10 flex flex-col items-center justify-center">
+                            <div className="text-6xl mb-4 animate-bounce drop-shadow-2xl">
+                                {timerMode === 'work' ? '🍅' : '☕'}
+                            </div>
+                            <h2 className="text-2xl font-black text-white mb-2 tracking-tight drop-shadow-md">
+                                {timerMode === 'work' ? '수확의 기쁨!' : '꿀맛 같은 휴식'}
+                            </h2>
+                            <p className="text-sm font-medium text-white/80 mb-6 drop-shadow">
+                                {timerMode === 'work'
+                                    ? `정말 고생했어! 뽀모도로 하나를 무사히 수확했어.`
+                                    : `충분히 쉬었어? 자, 다시 몰입해 보자!`}
+                            </p>
+
+                            <button
+                                onClick={() => setShowParcel(false)}
+                                className="w-full py-3 px-6 rounded-2xl bg-white/20 hover:bg-white/30 text-white font-bold backdrop-blur-md border border-white/30 transition-all hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-2"
+                            >
+                                <span className="text-xl">✨</span> 확인 <span className="text-xl">✨</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
