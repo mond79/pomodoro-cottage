@@ -72,7 +72,7 @@ export const BGM_PRESETS = [
     },
     {
         id: 'snowy_day',
-        condition: (weather, hour) => weather === 'Snow',
+        condition: (weather) => weather === 'Snow',
         name: '눈 내리는 고요함',
         sounds: ['벽난로.mp3', '한국 독서실.mp3'],
         volumes: { '벽난로.mp3': 0.5, '한국 독서실.mp3': 0.2 },
@@ -80,7 +80,7 @@ export const BGM_PRESETS = [
     },
     {
         id: 'study_cafe',
-        condition: (weather, hour) => true, // 기본 Fallback
+        condition: () => true, // 기본 Fallback
         name: '아늑한 카페 한구석',
         sounds: ['카페소음.mp3', '한국 독서실.mp3'],
         volumes: { '카페소음.mp3': 0.5, '한국 독서실.mp3': 0.3 },

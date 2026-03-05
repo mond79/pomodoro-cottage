@@ -1,6 +1,5 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot, BarChart3 } from 'lucide-react';
-import { DEFAULT_QUOTES } from '../constants';
 
 export default function Header({
     isDarkMode, setIsDarkMode,

@@ -1,12 +1,12 @@
 import { X, Save, UploadCloud, Plus, Trash2 } from 'lucide-react';
 import { CATEGORIES } from '../constants';
-import { formatYMD } from '../utils/dateHelpers';
 
 export default function Modals({
     showSettingsModal, setShowSettingsModal, settingsMessage, handleBackup, handleRestore, showConfirmReset, setShowConfirmReset, handleResetAll,
     showQuoteModal, setShowQuoteModal, addQuote, newQuoteInput, setNewQuoteInput, customQuotes, deleteQuote,
     showDDayModal, setShowDDayModal, editingDDayIdx, setEditingDDayIdx, saveDDay, modalTitle, setModalTitle, modalDate, setModalDate,
-    showAddModal, setShowAddModal, addEvent, newEventTitle, setNewEventTitle, newEventDate, setNewEventDate, newEventCategory, setNewEventCategory
+    showAddModal, setShowAddModal, addEvent, newEventTitle, setNewEventTitle, newEventDate, setNewEventDate, newEventCategory, setNewEventCategory,
+    newEventTime, setNewEventTime, newEventLocation, setNewEventLocation
 }) {
 
     return (
@@ -139,10 +139,20 @@ export default function Modals({
                                     <input required value={newEventDate} onChange={(e) => setNewEventDate(e.target.value)} type="date" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800 dark:text-slate-100" />
                                 </div>
                                 <div>
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">시간</label>
+                                    <input required value={newEventTime} onChange={(e) => setNewEventTime(e.target.value)} type="time" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800 dark:text-slate-100" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">분류</label>
                                     <select value={newEventCategory} onChange={(e) => setNewEventCategory(e.target.value)} className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold appearance-none text-slate-800 dark:text-slate-100">
                                         {CATEGORIES.filter(c => c.id !== 'all').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-2">장소 (선택)</label>
+                                    <input value={newEventLocation} onChange={(e) => setNewEventLocation(e.target.value)} type="text" placeholder="예: 구글 미트, 강남역" className="w-full px-5 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold placeholder-slate-400 text-slate-800 dark:text-slate-100" />
                                 </div>
                             </div>
                             <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 transition-all hover:scale-105 cursor-pointer mt-4">일정 추가하기</button>

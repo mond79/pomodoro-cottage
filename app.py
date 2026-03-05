@@ -330,6 +330,41 @@ def add_event():
     return jsonify({'success': True})
 
 
+# 5. 커스텀 일정 구글 캘린더에 추가 (시간, 장소 포함)
+@app.route('/api/calendar/events', methods=['POST'])
+def add_custom_event():
+    if 'credentials' not in session:
+        return jsonify({'error': '구글 계정으로 로그인해주세요.'}), 401
+
+    credentials = Credentials(**session['credentials'])
+    service = build('calendar', 'v3', credentials=credentials)
+
+    data = request.json
+    title = data.get('title', '새로운 일정')
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+    location = data.get('location', '')
+
+    if not start_time or not end_time:
+        return jsonify({'error': '시작 시간과 종료 시간이 필요합니다.'}), 400
+
+    event = {
+        'summary': title,
+        'description': 'Gonggong Planner 오두막에서 등록된 일정입니다. 🏡',
+        'location': location,
+        'start': {'dateTime': start_time, 'timeZone': 'Asia/Seoul'},
+        'end': {'dateTime': end_time, 'timeZone': 'Asia/Seoul'},
+    }
+
+    try:
+        inserted_event = service.events().insert(calendarId='primary', body=event).execute()
+        return jsonify({'success': True, 'eventId': inserted_event.get('id')})
+    except Exception as e:
+        print(f"DEBUG: Custom event add failed: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+
 # ==========================================================
 #                    정적 파일 및 SPA 라우팅
 # ==========================================================

@@ -33,12 +33,12 @@ export default function TodoSection({
 
             if (result.summary) {
                 const existing = diaries[dateStr] || '';
-                const divider = existing ? '\n\n--- 📝 AI 요약 ---\n' : '📝 AI 요약\n';
+                const divider = existing ? '\n\n--- 🤖 AI 요약 ---\n' : '🤖 AI 요약\n';
                 saveDiary(existing + divider + result.summary);
             } else {
                 alert(result.error || 'AI 요약 생성에 실패했어요.');
             }
-        } catch (err) {
+        } catch {
             alert('AI 요약 생성 중 오류가 발생했어요.');
         } finally {
             setIsGenerating(false);
@@ -129,7 +129,10 @@ export default function TodoSection({
                                 <h4 className="font-black text-slate-800 dark:text-slate-200 mb-2 leading-tight pr-4">{event.title}</h4>
                                 <div className="flex flex-col gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-bold">
                                     <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-blue-400" /> {event.location}</div>
-                                    <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 text-orange-400" /> {event.date}</div>
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-3.5 h-3.5 text-orange-400" />
+                                        {event.date} {event.time && <span className="text-slate-400 dark:text-slate-500 ml-1 opacity-80">{event.time}</span>}
+                                    </div>
                                 </div>
                             </div>
                         ))

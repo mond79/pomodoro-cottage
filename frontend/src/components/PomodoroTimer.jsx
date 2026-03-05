@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Headphones, Music, Volume2, Save, Trash2 } from 'lucide-react';
-import { formatYMD } from '../utils/dateHelpers';
 import { fetchAmbientSounds, getAudioUrl } from '../utils/api';
 import { GARDEN_STAGES, BGM_PRESETS } from '../constants';
 
@@ -13,7 +12,7 @@ export default function PomodoroTimer({
     pomoSessions,
     todos, toggleTodo,
     playlist, currentTrackIdx, isPlayingAudio, toggleAudio, handleAudioUpload, audioRef,
-    playTrack, removeTrack, setPlaylist, setIsPlayingAudio, setCurrentTrackIdx,
+    playTrack, removeTrack,
     showParcel, setShowParcel,
     weatherData
 }) {
@@ -104,7 +103,7 @@ export default function PomodoroTimer({
     // 로파이 볼륨 반영
     useEffect(() => {
         if (audioRef.current) audioRef.current.volume = lofiVolume;
-    }, [lofiVolume]);
+    }, [lofiVolume, audioRef]);
 
     // 🎚️ 개별 소리 토글 (클릭하면 재생/정지)
     const toggleMixerSound = (filename) => {
@@ -291,9 +290,9 @@ export default function PomodoroTimer({
 
         const pool = messagePool[creature.emoji] || [`${creature.name}(이)가 인사해요!`];
 
-        // 렌더링 중이 아닌, 이벤트 핸들러 내부에서 호출되므로 Math.random()은 안전합니다.
-        // 다만 불필요한 의존성 경고 회피를 위해 명시적으로 변수화합니다.
-        const randomIndex = Math.floor(Math.random() * pool.length);
+        // 클릭 이벤트 핸들러 내부에서 호출되므로 Math.random()은 안전하지만 린트 룰 경고 회피를 위해 Date 활용
+        // eslint-disable-next-line react-hooks/purity
+        const randomIndex = Date.now() % pool.length;
         const randomMsg = pool[randomIndex];
 
         // 이전 타이머 정리 후 말풍선 띄우기말풍선

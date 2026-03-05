@@ -10,11 +10,11 @@ import Modals from './components/Modals';
 
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS, MOODS, SEASONS } from './constants';
-import { formatYMD, parseYMD, generateId, formatDDay } from './utils/dateHelpers';
+import { formatYMD, parseYMD, generateId } from './utils/dateHelpers';
 import {
   fetchStatus, redirectToGoogleLogin, redirectToLogout,
-  fetchAmbientSounds, getAudioUrl, fetchTasks, addGoogleTask, addCalendarEvent,
-  fetchWeather
+  fetchTasks, addGoogleTask, addCalendarEvent,
+  fetchWeather, addCustomCalendarEvent
 } from './utils/api';
 import { loadStoredPlaylist, saveTrackToDB, deleteTrackFromDB } from './utils/playlistStore';
 import { playNotificationSound } from './utils/audioEffects';
@@ -43,6 +43,7 @@ export default function App() {
   const [modalDate, setModalDate] = useState('');
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDate, setNewEventDate] = useState(formatYMD(new Date()));
+  const [newEventTime, setNewEventTime] = useState('14:00'); // 시간 동기화 기본값
   const [newEventCategory, setNewEventCategory] = useState('other');
   const [newEventLocation, setNewEventLocation] = useState('');
 
@@ -144,7 +145,7 @@ export default function App() {
         setCurrentTrackIdx(0);
       }
     });
-  }, []);
+  }, [lastActiveDate, setLastActiveDate, setTodos]);
 
   // ☁️ 날씨 정보 패치 및 테마 자동 연동
   useEffect(() => {
@@ -197,22 +198,26 @@ export default function App() {
 
         // 알림음 재생 및 모달 활성화 🔔
         playNotificationSound();
-        setShowParcel(true);
 
-        setTimerMode('rest');
-        setPomoTime(10 * 60);
+        setTimeout(() => {
+          setShowParcel(true);
+          setTimerMode('rest');
+          setPomoTime(10 * 60);
+        }, 0);
       } else {
         // 알림음 재생 및 모달 활성화 🔔
         playNotificationSound();
-        setShowParcel(true);
 
-        setTimerMode('work');
-        setPomoTime(pomoDuration * 60);
-        setIsPomoActive(false);
+        setTimeout(() => {
+          setShowParcel(true);
+          setTimerMode('work');
+          setPomoTime(pomoDuration * 60);
+          setIsPomoActive(false);
+        }, 0);
       }
     }
     return () => clearInterval(interval);
-  }, [isPomoActive, pomoTime, timerMode, pomoDuration, setPomoHistory, isGoogleLoggedIn]);
+  }, [isPomoActive, pomoTime, timerMode, pomoDuration, setPomoHistory, isGoogleLoggedIn, subjects, selectedSubjectId, setPomoSessions]);
 
   const changePomoDuration = (mins) => {
     setPomoDuration(mins);
@@ -326,7 +331,7 @@ export default function App() {
         if (data.diaries) setDiaries(data.diaries);
         if (data.pomoHistory) setPomoHistory(data.pomoHistory);
         setSettingsMessage('💖 타임캡슐에서 과거의 기록을 모두 꺼냈습니다!');
-      } catch (err) {
+      } catch {
         setSettingsMessage('🥲 앗, 파일 형식이 잘못되었습니다.');
       }
       setTimeout(() => setSettingsMessage(''), 3000);
@@ -430,13 +435,39 @@ export default function App() {
     setShowDDayModal(true);
   };
 
-  const addEvent = (e) => {
+  const addEvent = async (e) => {
     e.preventDefault();
     if (!newEventTitle.trim() || !newEventDate) return;
-    setEvents(prev => [...prev, {
-      id: generateId(), title: newEventTitle.trim(), date: newEventDate, category: newEventCategory, location: newEventLocation.trim() || '미정'
-    }]);
-    setNewEventTitle(''); setNewEventLocation(''); setNewEventCategory('other'); setShowAddModal(false);
+
+    // 로컬 상태 추가
+    const newEventObj = {
+      id: generateId(),
+      title: newEventTitle.trim(),
+      date: newEventDate,
+      time: newEventTime,
+      category: newEventCategory,
+      location: newEventLocation.trim() || '미정'
+    };
+    setEvents(prev => [...prev, newEventObj]);
+
+    // 🌍 구글 캘린더 동기화 로직
+    if (isGoogleLoggedIn) {
+      try {
+        const startDateTime = new Date(`${newEventDate}T${newEventTime || '00:00'}:00`);
+        const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // 일정 1시간 부여
+
+        await addCustomCalendarEvent({
+          title: newEventObj.title,
+          location: newEventObj.location === '미정' ? '' : newEventObj.location,
+          start_time: startDateTime.toISOString(),
+          end_time: endDateTime.toISOString()
+        });
+      } catch (err) {
+        console.error("구글 캘린더 동기화 실패:", err);
+      }
+    }
+
+    setNewEventTitle(''); setNewEventLocation(''); setNewEventCategory('other'); setNewEventTime('14:00'); setShowAddModal(false);
   };
   const deleteEvent = (id) => setEvents(prev => prev.filter(e => e.id !== id));
 
@@ -492,7 +523,7 @@ export default function App() {
     const month = new Date().getMonth() + 1; // 1~12
     const seasonKey = Object.keys(SEASONS).find(key => SEASONS[key].months.includes(month));
     return seasonKey ? SEASONS[seasonKey].image : currentMoodData.bgImage;
-  }, []);
+  }, [currentMoodData.bgImage]);
 
   // 'classic' 테마일 경우 계절 이미지로 교체, 그 외는 설정된 테마의 bgImage 사용
   const displayBgImage = currentMood === 'classic' ? currentSeasonImage : currentMoodData.bgImage;
@@ -652,6 +683,7 @@ export default function App() {
             showQuoteModal={showQuoteModal} setShowQuoteModal={setShowQuoteModal} addQuote={addQuote} newQuoteInput={newQuoteInput} setNewQuoteInput={setNewQuoteInput} customQuotes={customQuotes} deleteQuote={deleteQuote}
             showDDayModal={showDDayModal} setShowDDayModal={setShowDDayModal} editingDDayIdx={editingDDayIdx} setEditingDDayIdx={setEditingDDayIdx} saveDDay={saveDDay} modalTitle={modalTitle} setModalTitle={setModalTitle} modalDate={modalDate} setModalDate={setModalDate}
             showAddModal={showAddModal} setShowAddModal={setShowAddModal} addEvent={addEvent} newEventTitle={newEventTitle} setNewEventTitle={setNewEventTitle} newEventDate={newEventDate} setNewEventDate={setNewEventDate} newEventCategory={newEventCategory} setNewEventCategory={setNewEventCategory}
+            newEventTime={newEventTime} setNewEventTime={setNewEventTime} newEventLocation={newEventLocation} setNewEventLocation={setNewEventLocation}
           />
         </div>
       </div>

@@ -55,6 +55,28 @@ export async function addCalendarEvent(duration, subject = '집중 공부') {
 }
 
 /**
+ * 사용자 정의 일정(시간, 장소 포함)을 구글 캘린더에 추가
+ */
+export async function addCustomCalendarEvent(eventData) {
+    try {
+        const res = await fetch(`${API_BASE}/api/calendar/events`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventData),
+        });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || '일정 추가 실패');
+        }
+        return await res.json();
+    } catch (err) {
+        console.error('커스텀 캘린더 일정 추가 실패:', err.message);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
  * 환경음 목록을 가져오기
  */
 export async function fetchAmbientSounds() {
