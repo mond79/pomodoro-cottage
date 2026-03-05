@@ -481,6 +481,150 @@ def daily_summary():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+
+# ==========================================================
+#    📊 정원 앨범 - 집중 통계 & AI 리포트
+# ==========================================================
+
+@app.route('/api/focus-stats', methods=['POST'])
+def focus_stats():
+    """pomoSessions 데이터를 분석하여 통계 + Gemini AI 리포트를 생성합니다."""
+    try:
+        data = request.json or {}
+        sessions = data.get('sessions', [])
+
+        if not sessions:
+            return jsonify({
+                'stats': {},
+                'aiReport': '아직 기록된 뽀모도로 세션이 없어요. 첫 번째 토마토를 수확해 보세요! 🍅'
+            })
+
+        from collections import Counter
+        from datetime import datetime
+
+        # --- 1. 요일별 집중 횟수 ---
+        day_names = ['월', '화', '수', '목', '금', '토', '일']
+        day_counter = Counter()
+        for s in sessions:
+            try:
+                dt = datetime.strptime(s.get('date', ''), '%Y-%m-%d')
+                day_counter[day_names[dt.weekday()]] += 1
+            except (ValueError, IndexError):
+                pass
+
+        day_stats = {d: day_counter.get(d, 0) for d in day_names}
+
+        # --- 2. 시간대별 집중 분포 ---
+        time_slots = {'아침(6-12)': 0, '오후(12-18)': 0, '저녁(18-22)': 0, '밤(22-6)': 0}
+        for s in sessions:
+            try:
+                hour = int(s.get('startTime', '12:00').split(':')[0])
+                if 6 <= hour < 12:
+                    time_slots['아침(6-12)'] += 1
+                elif 12 <= hour < 18:
+                    time_slots['오후(12-18)'] += 1
+                elif 18 <= hour < 22:
+                    time_slots['저녁(18-22)'] += 1
+                else:
+                    time_slots['밤(22-6)'] += 1
+            except (ValueError, IndexError):
+                time_slots['오후(12-18)'] += 1
+
+        # --- 3. 과목별 누적 세션 수 ---
+        subject_counter = Counter()
+        for s in sessions:
+            name = s.get('subjectName', '자유 집중')
+            subject_counter[name] += 1
+
+        subject_stats = dict(subject_counter.most_common(10))
+
+        # --- 4. 핵심 지표 계산 ---
+        best_day = max(day_stats, key=day_stats.get) if day_stats else '없음'
+        best_time = max(time_slots, key=time_slots.get) if time_slots else '없음'
+        total_sessions = len(sessions)
+
+        # 주간 평균 (최근 30일 기준)
+        unique_dates = set(s.get('date', '') for s in sessions if s.get('date'))
+        active_days = len(unique_dates) or 1
+        weekly_avg = round(total_sessions / max(active_days / 7, 1), 1)
+
+        # 최근 7일 트렌드
+        from datetime import timedelta
+        today = datetime.now().date()
+        recent_7 = []
+        for i in range(6, -1, -1):
+            d = today - timedelta(days=i)
+            d_str = d.strftime('%Y-%m-%d')
+            count = sum(1 for s in sessions if s.get('date') == d_str)
+            recent_7.append({'date': d_str, 'label': f'{d.month}/{d.day}', 'count': count})
+
+        # 최근 30일 트렌드 (주 단위 집계)
+        recent_30_weeks = []
+        for w in range(3, -1, -1):
+            week_start = today - timedelta(days=(w + 1) * 7 - 1)
+            week_end = today - timedelta(days=w * 7)
+            count = sum(1 for s in sessions
+                        if s.get('date') and week_start <= datetime.strptime(s['date'], '%Y-%m-%d').date() <= week_end)
+            recent_30_weeks.append({
+                'label': f'{week_start.month}/{week_start.day}~{week_end.month}/{week_end.day}',
+                'count': count
+            })
+
+        stats = {
+            'totalSessions': total_sessions,
+            'activeDays': active_days,
+            'weeklyAvg': weekly_avg,
+            'bestDay': best_day,
+            'bestTime': best_time,
+            'dayStats': day_stats,
+            'timeSlots': time_slots,
+            'subjectStats': subject_stats,
+            'recent7': recent_7,
+            'recent30Weeks': recent_30_weeks,
+        }
+
+        # --- 5. Gemini AI 리포트 생성 ---
+        ai_report = ''
+        if GEMINI_API_KEY:
+            stats_text = f"""총 세션: {total_sessions}회, 활동 일수: {active_days}일, 주간 평균: {weekly_avg}회
+최다 집중 요일: {best_day} ({day_stats.get(best_day, 0)}회)
+최다 집중 시간대: {best_time} ({time_slots.get(best_time, 0)}회)
+과목별: {', '.join([f'{k} {v}회' for k, v in subject_stats.items()])}"""
+
+            prompt = f"""당신은 따뜻하고 감성적인 오두막의 정원사입니다. 
+사용자의 집중 통계 데이터를 보고, 짧지만 마음이 따뜻해지는 한국어 분석 리포트를 4~5문장으로 작성해 주세요.
+구체적인 수치를 언급하며 칭찬하되, 과하지 않게 자연스럽고 진심 어린 톤으로 써주세요.
+이모지를 적절히 2~3개 사용해 주세요.
+
+집중 통계 데이터:
+{stats_text}
+
+위 데이터를 바탕으로 따뜻한 집중 분석 리포트를 써주세요. 반드시 한국어로만 작성하세요."""
+
+            try:
+                api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={GEMINI_API_KEY}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.8, "maxOutputTokens": 300}
+                }
+                resp = requests.post(api_url, json=payload, timeout=15)
+                if resp.status_code == 200:
+                    result = resp.json()
+                    ai_report = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                else:
+                    print(f"Focus stats Gemini error: {resp.status_code}")
+            except Exception as gem_err:
+                print(f"Gemini API call failed: {gem_err}")
+
+        if not ai_report:
+            ai_report = f"지금까지 총 {total_sessions}개의 토마토를 수확하셨어요! {best_day}요일 {best_time}에 가장 집중을 잘하시는군요. 꾸준히 정원을 가꿔 나가고 계시네요 🌱"
+
+        return jsonify({'stats': stats, 'aiReport': ai_report.strip()})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 # ==========================================================
 #                    서버 실행
 # ==========================================================

@@ -6,6 +6,7 @@ import CalendarView from './components/CalendarView';
 import PomodoroTimer from './components/PomodoroTimer';
 import TodoSection from './components/TodoSection';
 import PomoHeatmap from './components/PomoHeatmap';
+import GardenAlbum from './components/GardenAlbum';
 import Modals from './components/Modals';
 
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -36,6 +37,7 @@ export default function App() {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHeatmapModal, setShowHeatmapModal] = useState(false);
+  const [showGardenAlbum, setShowGardenAlbum] = useState(false);
 
   // D-Day & Add Event
   const [editingDDayIdx, setEditingDDayIdx] = useState(null);
@@ -614,6 +616,7 @@ export default function App() {
             onGoogleLogin={redirectToGoogleLogin}
             onGoogleLogout={redirectToLogout}
             onShowHeatmap={() => setShowHeatmapModal(true)}
+            onShowGardenAlbum={() => setShowGardenAlbum(true)}
             weatherData={weatherData}
           />
 
@@ -676,6 +679,17 @@ export default function App() {
                 <PomoHeatmap pomoHistory={pomoHistory} pomoSessions={pomoSessions} subjects={subjects} currentMood={currentMood} onClose={() => setShowHeatmapModal(false)} />
               </div>
             </div>
+          )}
+
+          {/* 🌿 정원 앨범 모달 */}
+          {showGardenAlbum && (
+            <GardenAlbum
+              pomoSessions={pomoSessions}
+              pomoHistory={pomoHistory}
+              subjects={subjects}
+              currentMood={currentMood}
+              onClose={() => setShowGardenAlbum(false)}
+            />
           )}
 
           <Modals

@@ -162,3 +162,22 @@ export async function generateDailySummary(data) {
         return { error: err.message };
     }
 }
+
+/**
+ * 📊 정원 앨범 - 집중 통계 & AI 리포트 가져오기
+ */
+export async function fetchFocusStats(sessions) {
+    try {
+        const res = await fetch(`${API_BASE}/api/focus-stats`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessions }),
+        });
+        if (!res.ok) throw new Error('집중 통계 가져오기 실패');
+        return await res.json();
+    } catch (err) {
+        console.error('Focus stats failed:', err.message);
+        return { stats: {}, aiReport: '통계를 불러오는 데 실패했어요.', error: err.message };
+    }
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot, BarChart3 } from 'lucide-react';
+import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot, BarChart3, BookOpen } from 'lucide-react';
 
 export default function Header({
     isDarkMode, setIsDarkMode,
@@ -9,6 +9,7 @@ export default function Header({
     currentMood, setCurrentMood, MOODS,
     isGoogleLoggedIn, onGoogleLogin, onGoogleLogout,
     onShowHeatmap,
+    onShowGardenAlbum,
     weatherData
 }) {
     const [showMoodMenu, setShowMoodMenu] = useState(false);
@@ -69,6 +70,13 @@ export default function Header({
                     className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all text-emerald-500 dark:text-emerald-400 hover:text-emerald-600"
                 >
                     <BarChart3 className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={onShowGardenAlbum}
+                    aria-label="정원 앨범 보기"
+                    className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 cursor-pointer"
+                >
+                    <BookOpen className="w-5 h-5" />
                 </button>
                 <button
                     onClick={() => setShowSettingsModal(true)}
