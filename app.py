@@ -24,12 +24,14 @@ app = Flask(__name__)
 # 세션 유실 방지를 위해 고정 키 사용
 app.secret_key = 'mond_cottage_development_key'
 
-# 세션 쿠키 설정 (크로스 오리진 및 배포 환경 대응)
+# 세션 쿠키 설정 (크로스 오리진 및 배포 환경 구글 OAuth 대응)
 is_prod = os.environ.get('RENDER') == 'true' or 'onrender.com' in os.environ.get('FRONTEND_URL', '')
 app.config.update(
-    SESSION_COOKIE_SAMESITE='Lax',
+    # 구글 외부 서버 리디렉트 간 쿠키 유실(403 CSRF/State 오류) 방지를 위해 SameSite='None' 필요
+    SESSION_COOKIE_SAMESITE='None' if is_prod else 'Lax',
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=is_prod,  # 배포 환경(Render)에서는 True
+    # Samesite=None을 쓰려면 SECURE=True가 필수이므로 배포 환경에선 반드시 True여야 함
+    SESSION_COOKIE_SECURE=is_prod,  
 )
 
 # React 빌드 폴더 경로 설정 (배포 시 frontend/dist 서빙)
