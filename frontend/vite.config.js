@@ -13,6 +13,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'img/*.png', 'img/*.webp'],
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB로 캐싱 허용 용량 증가 (고해상도 배경화면 대응)
         runtimeCaching: [
           {
             urlPattern: /^\/api\/ambient-sounds/,
