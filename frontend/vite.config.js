@@ -40,9 +40,9 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24 * 30, // 30일
               },
               cacheableResponse: {
-                statuses: [0, 200, 206] // 오디오 스트리밍 응답(206 부분 콘텐츠) 허용
+                statuses: [0, 200] // 206 제거: 워크박스가 200 응답만 캐시에 넣고 Range 요청은 플러그인이 처리하게 함
               },
-              rangeRequests: true // HTML5 <audio> 태그의 Range 요청을 캐시에서 처리하도록 허용 (매우 중요)
+              rangeRequests: true // 이것만으로 충분하며, 206 상태 코드를 cacheableResponse에 넣지 않아야 합니다.
             }
           }
         ]
