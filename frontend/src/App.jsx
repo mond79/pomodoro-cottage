@@ -8,6 +8,7 @@ import TodoSection from './components/TodoSection';
 import PomoHeatmap from './components/PomoHeatmap';
 import GardenAlbum from './components/GardenAlbum';
 import Modals from './components/Modals';
+import ReportDashboard from './components/ReportDashboard';
 
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS, MOODS, SEASONS } from './constants';
@@ -38,6 +39,7 @@ export default function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHeatmapModal, setShowHeatmapModal] = useState(false);
   const [showGardenAlbum, setShowGardenAlbum] = useState(false);
+  const [showReportDashboard, setShowReportDashboard] = useState(false);
 
   // D-Day & Add Event
   const [editingDDayIdx, setEditingDDayIdx] = useState(null);
@@ -673,6 +675,7 @@ export default function App() {
                 onGoogleLogout={redirectToLogout}
                 onShowHeatmap={() => setShowHeatmapModal(true)}
                 onShowGardenAlbum={() => setShowGardenAlbum(true)}
+                onShowReport={() => setShowReportDashboard(true)}
                 weatherData={weatherData}
               />
 
@@ -686,7 +689,7 @@ export default function App() {
             </>
           )}
 
-          <main className={`mx-auto grid grid-cols-1 gap-8 ${isZenMode ? 'max-w-4xl place-items-center min-h-[80vh] flex flex-col justify-center' : 'max-w-7xl lg:grid-cols-12'}`}>
+          <main className={`mx-auto grid grid-cols-1 gap-4 sm:gap-8 px-3 sm:px-0 ${isZenMode ? 'max-w-4xl place-items-center min-h-[80vh] flex flex-col justify-center' : 'max-w-7xl lg:grid-cols-12'}`}>
 
             {!isZenMode && (
               <div className="lg:col-span-8 space-y-8">
@@ -760,6 +763,14 @@ export default function App() {
               subjects={subjects}
               currentMood={currentMood}
               onClose={() => setShowGardenAlbum(false)}
+            />
+          )}
+
+          {/* 📊 리포트 대시보드 모달 */}
+          {showReportDashboard && (
+            <ReportDashboard
+              pomoSessions={pomoSessions}
+              onClose={() => setShowReportDashboard(false)}
             />
           )}
 

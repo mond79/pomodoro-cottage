@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot, BarChart3, BookOpen } from 'lucide-react';
+import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot, BarChart3, BookOpen, TrendingUp } from 'lucide-react';
 
 export default function Header({
     isDarkMode, setIsDarkMode,
@@ -10,6 +10,7 @@ export default function Header({
     isGoogleLoggedIn, onGoogleLogin, onGoogleLogout,
     onShowHeatmap,
     onShowGardenAlbum,
+    onShowReport,
     weatherData
 }) {
     const [showMoodMenu, setShowMoodMenu] = useState(false);
@@ -23,7 +24,7 @@ export default function Header({
         return () => clearInterval(interval);
     }, []);
     return (
-        <header className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <header className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-8 px-2 sm:px-0">
             <div>
                 <div className="flex flex-col items-start gap-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -37,7 +38,7 @@ export default function Header({
                             </div>
                         )}
                     </div>
-                    <h1 className="text-3xl font-black tracking-tighter text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                    <h1 className="text-2xl sm:text-3xl font-black tracking-tighter text-blue-600 dark:text-blue-400 flex items-center gap-2">
                         <CalendarIcon className="w-8 h-8" />
                         GONGGONG <span className="text-slate-400 font-light">|</span> PLANNER
                     </h1>
@@ -63,13 +64,20 @@ export default function Header({
                 </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <button
                     onClick={onShowHeatmap}
                     aria-label="성취 기록 보기"
                     className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all text-emerald-500 dark:text-emerald-400 hover:text-emerald-600"
                 >
                     <BarChart3 className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={onShowReport}
+                    aria-label="집중 리포트"
+                    className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all text-purple-500 dark:text-purple-400 hover:text-purple-600 cursor-pointer"
+                >
+                    <TrendingUp className="w-5 h-5" />
                 </button>
                 <button
                     onClick={onShowGardenAlbum}
@@ -92,7 +100,8 @@ export default function Header({
                         aria-label="구글 캘린더 연결 해제"
                         className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 shadow-sm text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 transition-all text-xs font-bold"
                     >
-                        <CalendarIcon className="w-4 h-4" /> 캘린더 연결됨
+                        <CalendarIcon className="w-4 h-4" />
+                        <span className="hidden sm:inline">캘린더 연결됨</span>
                         <LogOut className="w-3 h-3 opacity-50" />
                     </button>
                 ) : (
@@ -101,7 +110,8 @@ export default function Header({
                         aria-label="구글 캘린더 연동"
                         className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 shadow-sm text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all text-xs font-bold"
                     >
-                        <LogIn className="w-4 h-4" /> 구글 캘린더 연동
+                        <LogIn className="w-4 h-4" />
+                        <span className="hidden sm:inline">구글 캘린더 연동</span>
                     </button>
                 )}
 

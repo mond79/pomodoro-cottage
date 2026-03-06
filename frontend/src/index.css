@@ -42,3 +42,58 @@ body {
     transform: scale(1) translateY(0);
   }
 }
+
+/* ─── 📱 모바일 반응형 최적화 ─── */
+
+/* PWA safe-area (iPhone 노치 등) */
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* 터치 대상 최소 크기 */
+@media (pointer: coarse) {
+
+  button,
+  [role="button"],
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* 모바일 스크롤 최적화 */
+.custom-scrollbar {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 768px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 모바일 폰트 스케일 */
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+/* 모바일에서 호버 효과 비활성화 (터치 기기) */
+@media (hover: none) {
+
+  .hover\:scale-105:hover,
+  .hover\:scale-110:hover {
+    transform: none;
+  }
+}
+
+/* 모바일 타이머 숫자 크기 조정 */
+@media (max-width: 640px) {
+  .tabular-nums {
+    letter-spacing: -0.05em;
+  }
+}
