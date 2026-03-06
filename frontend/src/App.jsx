@@ -147,6 +147,11 @@ export default function App() {
         setCurrentTrackIdx(0);
       }
     });
+
+    // 🔔 브라우저 알림 권한 획득
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }, [lastActiveDate, setLastActiveDate, setTodos]);
 
   // ☁️ 날씨 정보 패치 및 테마 자동 연동
@@ -200,6 +205,12 @@ export default function App() {
 
         // 알림음 재생 및 모달 활성화 🔔
         playNotificationSound();
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('수확의 기쁨! 🍅', {
+            body: `대단해요! ${pomoDuration}분 집중을 완료했어요.\n달콤한 휴식을 즐기세요.`,
+            icon: '/icon-192x192.png'
+          });
+        }
 
         setTimeout(() => {
           setShowParcel(true);
@@ -209,6 +220,12 @@ export default function App() {
       } else {
         // 알림음 재생 및 모달 활성화 🔔
         playNotificationSound();
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('이제 다시 시작할 시간 🍃', {
+            body: `휴식이 끝났어요. 깊은 호흡 한 번 하고 다시 화이팅!`,
+            icon: '/icon-192x192.png'
+          });
+        }
 
         setTimeout(() => {
           setShowParcel(true);

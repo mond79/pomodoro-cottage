@@ -51,8 +51,8 @@ export default defineConfig({
         name: 'Mond Cottage',
         short_name: 'Cottage',
         description: '감성 오두막 뽀모도로 타이머 & 플래너',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        theme_color: '#0f172a', // slate-900 (다크 모드 또는 모달 배경과 유사한 깊은 색)
+        background_color: '#0f172a',
         display: 'standalone',
         icons: [
           {

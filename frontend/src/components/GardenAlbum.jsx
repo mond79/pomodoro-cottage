@@ -102,9 +102,15 @@ export default function GardenAlbum({ pomoSessions, pomoHistory, subjects, onClo
                     </div>
 
                     {isLoading ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-3">
-                            <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-                            <p className="text-sm text-slate-400 font-bold">정원 기록을 불러오는 중...</p>
+                        <div className="flex flex-col items-center justify-center py-16 space-y-6">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-emerald-400 rounded-full blur-xl opacity-30 animate-pulse" />
+                                <div className="relative w-16 h-16 rounded-full border-4 border-emerald-100 dark:border-slate-700 border-t-emerald-500 animate-spin" />
+                            </div>
+                            <div className="text-center space-y-2 animate-pulse">
+                                <p className="text-slate-600 dark:text-slate-300 font-bold text-lg tracking-tight">기억의 씨앗들을 모으고 있어요...</p>
+                                <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">✨ 요정들이 오두막의 기록을 엮어내는 중입니다</p>
+                            </div>
                         </div>
                     ) : (
                         <>
@@ -271,14 +277,21 @@ export default function GardenAlbum({ pomoSessions, pomoHistory, subjects, onClo
 
                             {/* AI 집중 리포트 */}
                             {aiReport && (
-                                <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/50">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <Sparkles className="w-5 h-5 text-indigo-500" />
-                                        <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">🤖 AI 집중 분석 리포트</span>
+                                <div className="mt-4 p-6 rounded-3xl bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/80 dark:from-indigo-900/40 dark:via-slate-800/80 dark:to-purple-900/40 border border-indigo-100/50 dark:border-indigo-800/30 shadow-sm relative overflow-hidden group">
+                                    {/* 장식용 은은한 빛 반사 효과 (glow) */}
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-300/20 dark:bg-indigo-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-transform duration-1000 group-hover:scale-150" />
+
+                                    <div className="flex items-center gap-2 mb-4 relative z-10">
+                                        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl">
+                                            <Sparkles className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                                        </div>
+                                        <h3 className="text-base font-black text-indigo-800 dark:text-indigo-300 tracking-tight">요정의 다이어리</h3>
                                     </div>
-                                    <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed font-medium whitespace-pre-line">
-                                        {aiReport}
-                                    </p>
+                                    <div className="relative z-10">
+                                        <p className="text-[15px] text-slate-700 dark:text-slate-300 leading-[1.8] font-medium whitespace-pre-line">
+                                            {aiReport}
+                                        </p>
+                                    </div>
                                 </div>
                             )}
                         </>
