@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Brain } from 'lucide-react';
+import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Brain, Tag } from 'lucide-react';
 import { GARDEN_STAGES } from '../constants';
 import SoundMixer from './SoundMixer';
 import MiniGarden from './MiniGarden';
@@ -16,7 +16,8 @@ export default function PomodoroTimer({
     playTrack, removeTrack,
     showParcel, setShowParcel,
     weatherData,
-    isZenMode = false
+    isZenMode = false,
+    currentPomoTag, setCurrentPomoTag
 }) {
     // === 🐱 식구 말풍선 ===
     const [speechBubble, setSpeechBubble] = useState(null);
@@ -189,6 +190,23 @@ export default function PomodoroTimer({
                                 );
                             })}
                         </div>
+                    </div>
+                )}
+
+                {/* 🏷️ 세부 태그 입력 */}
+                {!isZenMode && (
+                    <div className={`mb-4 p-3 rounded-xl border transition-colors ${timerMode === 'work' ? 'bg-white/5 border-white/10' : 'bg-teal-900/20 border-teal-500/30'}`}>
+                        <div className={`text-[10px] font-bold mb-2 flex items-center gap-1 ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
+                            <Tag className="w-3 h-3" /> 세부 태그 (옵션)
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="예: #1단원 #질문정리"
+                            value={currentPomoTag}
+                            onChange={(e) => setCurrentPomoTag(e.target.value)}
+                            className={`w-full px-3 py-1.5 text-xs rounded-lg outline-none transition-all ${timerMode === 'work' ? 'bg-slate-800 text-slate-200 border border-slate-700 focus:border-slate-500 hover:border-slate-600 focus:ring-1 focus:ring-slate-500' : 'bg-teal-800/50 text-teal-100 border border-teal-600 focus:border-teal-400 placeholder:text-teal-400/50'}`}
+                            disabled={isPomoActive}
+                        />
                     </div>
                 )}
 

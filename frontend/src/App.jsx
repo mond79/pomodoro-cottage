@@ -21,6 +21,7 @@ import {
 import { loadStoredPlaylist, saveTrackToDB, deleteTrackFromDB } from './utils/playlistStore';
 import { playNotificationSound } from './utils/audioEffects';
 import { generateCottageGreeting } from './utils/aiBot';
+import { sendSmartDailyNotification } from './utils/notifications';
 
 export default function App() {
   // --- States ---
@@ -58,7 +59,13 @@ export default function App() {
   const [timerMode, setTimerMode] = useState('work'); // 'work' | 'rest'
   const [pomoHistory, setPomoHistory] = useLocalStorage('gplanner-pomos', {});
   const [pomoSessions, setPomoSessions] = useLocalStorage('gplanner-sessions', []);
+  const [appTheme, setAppTheme] = useLocalStorage('gplanner-theme', {
+    font: 'font-sans',
+    bgDim: 'bg-slate-900/40',
+    bgBlur: 'backdrop-blur-sm'
+  });
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
+  const [currentPomoTag, setCurrentPomoTag] = useState('');
   const [weatherData, setWeatherData] = useState(null);
   const [showParcel, setShowParcel] = useState(false); // 🎁 소포(알림) 모달 상태
   const [isZenMode, setIsZenMode] = useState(false); // 🧘🏼 집중 모드 (Zen Mode)
@@ -151,11 +158,19 @@ export default function App() {
       }
     });
 
-    // 🔔 브라우저 알림 권한 획득
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    // 🔔 브라우저 알림 권한 획득 & 스마트 알림 (하루 1회 제한이 notifications 내부에서 처리됨)
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            sendSmartDailyNotification(todos, dDays);
+          }
+        });
+      } else if (Notification.permission === 'granted') {
+        sendSmartDailyNotification(todos, dDays);
+      }
     }
-  }, [lastActiveDate, setLastActiveDate, setTodos]);
+  }, [lastActiveDate, setLastActiveDate, setTodos, dDays, todos]);
 
   // ⌨️ 전역 키보드 단축키 (Zen 모드, 타이머 조작)
   useEffect(() => {
@@ -231,9 +246,10 @@ export default function App() {
         // 📝 세션 로그 기록
         const activeSubject = subjects.find(s => s.id === selectedSubjectId);
         setPomoSessions(prev => [
-          { id: generateId(), date: todayStr, startTime: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, duration: pomoDuration, subjectId: activeSubject?.id || null, subjectName: activeSubject?.name || '자유 집중', subjectColor: activeSubject?.color || 'bg-slate-400' },
+          { id: generateId(), date: todayStr, startTime: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, duration: pomoDuration, subjectId: activeSubject?.id || null, subjectName: activeSubject?.name || '자유 집중', subjectColor: activeSubject?.color || 'bg-slate-400', tag: currentPomoTag.trim() },
           ...prev
         ].slice(0, 500));
+        setCurrentPomoTag('');
 
         // 구글 캘린더에 이벤트 자동 전송 🗓️
         if (isGoogleLoggedIn) {
@@ -462,16 +478,29 @@ export default function App() {
     }));
   };
 
-  const addTodo = async (e) => {
-    e.preventDefault();
-    if (!newTodo.trim()) return;
-    const todoToAdd = { id: generateId(), text: newTodo.trim(), completed: false };
+  const addTodo = async (eOrData) => {
+    if (eOrData && eOrData.preventDefault) eOrData.preventDefault();
+
+    const isObject = eOrData && typeof eOrData === 'object' && 'text' in eOrData;
+    const text = isObject ? eOrData.text : newTodo;
+
+    if (!text?.trim()) return;
+
+    const todoToAdd = {
+      id: generateId(),
+      text: text.trim(),
+      completed: false,
+      ...(isObject && eOrData.priority && eOrData.priority !== 'none' && { priority: eOrData.priority }),
+      ...(isObject && eOrData.tag && { tag: eOrData.tag.trim() }),
+      ...(isObject && eOrData.deadline && { deadline: eOrData.deadline })
+    };
+
     setTodos(prev => [...prev, todoToAdd]);
     setNewTodo('');
 
     // 구글 로그인 상태라면 구글 Tasks에도 추가
     if (isGoogleLoggedIn) {
-      const res = await addGoogleTask(newTodo.trim());
+      const res = await addGoogleTask(text.trim());
       if (res.success) {
         console.log('✅ Google Tasks에 할 일 추가 성공!');
       }
@@ -600,11 +629,14 @@ export default function App() {
   const appBgClasses = timerMode === 'work' ? currentMoodData.workBg : currentMoodData.restBg;
 
   return (
-    <div className={`${isDarkMode ? 'dark' : ''} min-h-screen font-sans selection:bg-blue-200`}>
+    <div className={`${isDarkMode ? 'dark' : ''} min-h-screen ${appTheme?.font || 'font-sans'} selection:bg-blue-200`}>
       <div
         className="min-h-screen bg-cover bg-center bg-fixed transition-all duration-1000 relative flex flex-col"
         style={{ backgroundImage: displayBgImage ? `url('${displayBgImage}')` : 'none' }}
       >
+        {/* 테마 배경 오버레이 (밝기 및 블러 효과) */}
+        <div className={`absolute inset-0 z-0 pointer-events-none transition-all duration-1000 ${appTheme?.bgDim || 'bg-slate-900/40'} ${appTheme?.bgBlur || 'backdrop-blur-sm'}`}></div>
+
         {/* 그라데이션 오버레이 (약하게) */}
         <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-1000 opacity-30 dark:opacity-50 ${appBgClasses} pointer-events-none`}></div>
 
@@ -724,6 +756,7 @@ export default function App() {
                 showParcel={showParcel} setShowParcel={setShowParcel}
                 weatherData={weatherData}
                 isZenMode={isZenMode} // 타이머 내부 UI 변경용 상태 전달
+                currentPomoTag={currentPomoTag} setCurrentPomoTag={setCurrentPomoTag}
               />
 
               {!isZenMode && (
@@ -780,6 +813,7 @@ export default function App() {
             showDDayModal={showDDayModal} setShowDDayModal={setShowDDayModal} editingDDayIdx={editingDDayIdx} setEditingDDayIdx={setEditingDDayIdx} saveDDay={saveDDay} modalTitle={modalTitle} setModalTitle={setModalTitle} modalDate={modalDate} setModalDate={setModalDate}
             showAddModal={showAddModal} setShowAddModal={setShowAddModal} addEvent={addEvent} newEventTitle={newEventTitle} setNewEventTitle={setNewEventTitle} newEventDate={newEventDate} setNewEventDate={setNewEventDate} newEventCategory={newEventCategory} setNewEventCategory={setNewEventCategory}
             newEventTime={newEventTime} setNewEventTime={setNewEventTime} newEventLocation={newEventLocation} setNewEventLocation={setNewEventLocation}
+            appTheme={appTheme} setAppTheme={setAppTheme}
           />
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PenTool, CheckSquare, Plus, CheckCircle2, Trash2, CalendarDays, MapPin, Clock, Sparkles, Loader2, GripVertical } from 'lucide-react';
+import { PenTool, CheckSquare, Plus, CheckCircle2, Trash2, CalendarDays, MapPin, Clock, Sparkles, Loader2, GripVertical, Tag, Flag, ChevronDown, ChevronUp } from 'lucide-react';
 import { CATEGORIES } from '../constants';
 import { formatYMD } from '../utils/dateHelpers';
 import { generateDailySummary } from '../utils/api';
@@ -16,6 +16,12 @@ export default function TodoSection({
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [activeId, setActiveId] = useState(null);
+
+    // 할 일 고급 설정 상태
+    const [showAdvancedTodo, setShowAdvancedTodo] = useState(false);
+    const [todoPriority, setTodoPriority] = useState('none');
+    const [todoTag, setTodoTag] = useState('');
+    const [todoDeadline, setTodoDeadline] = useState('');
 
     // 🖱️ PointerSensor: 5px 이상 드래그해야 시작 (클릭과 구분)
     const sensors = useSensors(
@@ -69,6 +75,20 @@ export default function TodoSection({
 
     const activeTodo = activeId ? todos.find(t => t.id === activeId) : null;
 
+    const handleAddTodoSubmit = (e) => {
+        e.preventDefault();
+        addTodo({
+            text: newTodo,
+            priority: todoPriority,
+            tag: todoTag,
+            deadline: todoDeadline
+        });
+        setTodoPriority('none');
+        setTodoTag('');
+        setTodoDeadline('');
+        setShowAdvancedTodo(false);
+    };
+
     return (
         <>
             {/* Daily Retrospective (오늘의 항해 일지) */}
@@ -104,9 +124,35 @@ export default function TodoSection({
             {/* Daily To-Do 🎉 드래그 앤 드롭 정렬 + 폭죽 애니메이션 */}
             <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 relative">
                 <h3 className="text-xl font-black mb-6 flex items-center gap-3"><CheckSquare className="w-6 h-6 text-green-500" /> 오늘 나의 목표</h3>
-                <form onSubmit={addTodo} className="mb-6 flex gap-2">
-                    <input type="text" placeholder="오늘 할 일..." className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-green-500 outline-none" value={newTodo} onChange={(e) => setNewTodo(e.target.value)} />
-                    <button type="submit" className="bg-green-600 text-white p-2.5 rounded-2xl hover:bg-green-700 transition-all cursor-pointer"><Plus className="w-5 h-5" /></button>
+                <form onSubmit={handleAddTodoSubmit} className="mb-6 flex flex-col gap-2">
+                    <div className="flex gap-2">
+                        <input type="text" placeholder="오늘 할 일..." className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-green-500 outline-none transition-all" value={newTodo} onChange={(e) => setNewTodo(e.target.value)} />
+                        <button type="button" onClick={() => setShowAdvancedTodo(!showAdvancedTodo)} className={`p-2.5 rounded-2xl border transition-all cursor-pointer ${showAdvancedTodo ? 'bg-slate-200 dark:bg-slate-700 border-slate-300 dark:border-slate-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                            {showAdvancedTodo ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+                        </button>
+                        <button type="submit" className="bg-green-600 text-white p-2.5 rounded-2xl hover:bg-green-700 transition-all cursor-pointer flex-shrink-0"><Plus className="w-5 h-5" /></button>
+                    </div>
+                    {showAdvancedTodo && (
+                        <div className="flex flex-wrap gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
+                            <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 flex-1 min-w-[120px]">
+                                <Tag className="w-4 h-4 text-slate-400" />
+                                <input type="text" placeholder="태그 (예: 공부)" value={todoTag} onChange={(e) => setTodoTag(e.target.value)} className="bg-transparent border-none outline-none text-xs w-full text-slate-700 dark:text-slate-300" />
+                            </div>
+                            <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 flex-1 min-w-[140px]">
+                                <Flag className="w-4 h-4 text-slate-400" />
+                                <select value={todoPriority} onChange={(e) => setTodoPriority(e.target.value)} className="bg-transparent border-none outline-none text-xs w-full text-slate-700 dark:text-slate-200 cursor-pointer appearance-none dark:[color-scheme:dark]">
+                                    <option value="none" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">우선순위 없음</option>
+                                    <option value="high" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🔴 높음</option>
+                                    <option value="medium" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🟡 보통</option>
+                                    <option value="low" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">🔵 낮음</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 flex-1 min-w-[140px]">
+                                <CalendarDays className="w-4 h-4 text-slate-400" />
+                                <input type="date" value={todoDeadline} onChange={(e) => setTodoDeadline(e.target.value)} className="bg-transparent border-none outline-none text-xs w-full text-slate-700 dark:text-slate-200 cursor-pointer dark:[color-scheme:dark]" />
+                            </div>
+                        </div>
+                    )}
                 </form>
                 <DndContext
                     sensors={sensors}
@@ -224,11 +270,41 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, celebratingId, isDragg
                 <GripVertical className="w-4 h-4" />
             </button>
 
-            <div onClick={() => toggleTodo(todo.id)} className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 z-10 ${todo.completed ? 'bg-green-500 border-green-500' : 'border-slate-300'}`}>
+            <div onClick={() => toggleTodo(todo.id)} className={`w-5 h-5 mt-0.5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 z-10 ${todo.completed ? 'bg-green-500 border-green-500' : 'border-slate-300'}`}>
                 {todo.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
             </div>
-            <span onClick={() => toggleTodo(todo.id)} className={`text-sm font-medium transition-all flex-1 cursor-pointer z-10 ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{todo.text}</span>
-            <button onClick={() => deleteTodo(todo.id)} className="cursor-pointer text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"><Trash2 className="w-4 h-4" /></button>
+
+            <div className="flex-1 flex flex-col gap-1 min-w-0 z-10" onClick={() => toggleTodo(todo.id)}>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-sm font-medium transition-all truncate cursor-pointer ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                        {todo.text}
+                    </span>
+                    {todo.priority === 'high' && <Flag className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />}
+                    {todo.priority === 'medium' && <Flag className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />}
+                    {todo.priority === 'low' && <Flag className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                </div>
+                {(todo.tag || todo.deadline) && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {todo.tag && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                <Tag className="w-3 h-3" /> {todo.tag}
+                            </span>
+                        )}
+                        {todo.deadline && (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold
+                                ${todo.completed
+                                    ? 'bg-slate-50 dark:bg-slate-800/50 border-transparent text-slate-400'
+                                    : new Date(todo.deadline) < new Date(new Date().setHours(0, 0, 0, 0))
+                                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
+                                        : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-400'}`}>
+                                <CalendarDays className="w-3 h-3" /> {todo.deadline}
+                            </span>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <button onClick={() => deleteTodo(todo.id)} className="cursor-pointer text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-10 ml-2 flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
         </div>
     );
 }

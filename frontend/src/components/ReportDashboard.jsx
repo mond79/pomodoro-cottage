@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { X, TrendingUp, Clock, Flame, Target, BarChart3 } from 'lucide-react';
+import { X, TrendingUp, Clock, Flame, Target, BarChart3, Tag } from 'lucide-react';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const HOUR_LABELS = ['새벽\n(0-5)', '아침\n(6-8)', '오전\n(9-11)', '점심\n(12-13)', '오후\n(14-17)', '저녁\n(18-20)', '심야\n(21-23)'];
@@ -58,11 +58,25 @@ export default function ReportDashboard({ pomoSessions, onClose }) {
             bySubject[key].totalMin += s.duration || 25;
         });
 
+        // 태그별 집계
+        const byTag = {};
+        sessions.forEach(s => {
+            if (s.tag) {
+                const tags = s.tag.split(' ').map(t => t.trim()).filter(Boolean);
+                tags.forEach(t => {
+                    const tagKey = t.startsWith('#') ? t : `#${t}`;
+                    if (!byTag[tagKey]) byTag[tagKey] = { count: 0, totalMin: 0 };
+                    byTag[tagKey].count += 1;
+                    byTag[tagKey].totalMin += s.duration || 25;
+                });
+            }
+        });
+
         const totalPomos = sessions.length;
         const totalMin = sessions.reduce((sum, s) => sum + (s.duration || 25), 0);
         const avgPerDay = totalPomos > 0 ? Math.round(totalMin / 7) : 0;
 
-        return { start, end, byDay, bySubject, totalPomos, totalMin, avgPerDay, sessions };
+        return { start, end, byDay, bySubject, byTag, totalPomos, totalMin, avgPerDay, sessions };
     }, [pomoSessions, weekOffset]);
 
     // === 월간 데이터 집계 ===
@@ -98,11 +112,25 @@ export default function ReportDashboard({ pomoSessions, onClose }) {
             bySubject[key].totalMin += s.duration || 25;
         });
 
+        // 태그별
+        const byTag = {};
+        sessions.forEach(s => {
+            if (s.tag) {
+                const tags = s.tag.split(' ').map(t => t.trim()).filter(Boolean);
+                tags.forEach(t => {
+                    const tagKey = t.startsWith('#') ? t : `#${t}`;
+                    if (!byTag[tagKey]) byTag[tagKey] = { count: 0, totalMin: 0 };
+                    byTag[tagKey].count += 1;
+                    byTag[tagKey].totalMin += s.duration || 25;
+                });
+            }
+        });
+
         const totalPomos = sessions.length;
         const totalMin = sessions.reduce((sum, s) => sum + (s.duration || 25), 0);
         const activeDays = Object.values(byDate).filter(d => d.count > 0).length;
 
-        return { year: y, month: m, daysInMonth, byDate, bySubject, totalPomos, totalMin, activeDays, sessions };
+        return { year: y, month: m, daysInMonth, byDate, bySubject, byTag, totalPomos, totalMin, activeDays, sessions };
     }, [pomoSessions, monthOffset]);
 
     // === 시간대별 트렌드 ===
@@ -327,7 +355,7 @@ export default function ReportDashboard({ pomoSessions, onClose }) {
                     <div className="p-4 rounded-2xl bg-white/5 border border-white/10 mb-4">
                         <div className="text-[11px] font-bold text-slate-400 mb-3">📚 과목별 비율</div>
                         <div className="flex flex-col gap-2">
-                            {Object.entries(viewMode === 'week' ? weekData.bySubject : monthData.bySubject)
+                            {Object.entries(current.bySubject)
                                 .sort((a, b) => b[1].totalMin - a[1].totalMin)
                                 .map(([name, data]) => (
                                     <div key={name} className="flex items-center gap-2">
@@ -338,6 +366,34 @@ export default function ReportDashboard({ pomoSessions, onClose }) {
                                         <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
                                             <div
                                                 className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-orange-400"
+                                                style={{ width: `${(data.totalMin / current.totalMin) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                        </div>
+                    </div>
+                )}
+
+                {/* 태그별 비율 */}
+                {Object.keys(current.byTag || {}).length > 0 && (
+                    <div className="p-4 rounded-2xl bg-slate-900/50 border border-indigo-500/20 mb-4">
+                        <div className="text-[11px] font-bold text-indigo-300 mb-3 flex items-center gap-1">
+                            <Tag className="w-3 h-3" /> 태그별 분석
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            {Object.entries(current.byTag)
+                                .sort((a, b) => b[1].totalMin - a[1].totalMin)
+                                .slice(0, 10) // 상위 10개만 표시
+                                .map(([name, data]) => (
+                                    <div key={name} className="flex items-center gap-2">
+                                        <span className="text-xs text-indigo-200 font-bold flex-1 truncate">{name}</span>
+                                        <span className="text-[10px] text-slate-500 font-bold">{data.count}회</span>
+                                        <span className="text-[10px] text-indigo-400 font-bold w-14 text-right">{data.totalMin}분</span>
+                                        <div className="w-16 h-2 bg-white/5 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-400"
                                                 style={{ width: `${(data.totalMin / current.totalMin) * 100}%` }}
                                             />
                                         </div>
