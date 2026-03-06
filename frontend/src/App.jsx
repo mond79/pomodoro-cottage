@@ -59,6 +59,7 @@ export default function App() {
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [showParcel, setShowParcel] = useState(false); // 🎁 소포(알림) 모달 상태
+  const [isZenMode, setIsZenMode] = useState(false); // 🧘🏼 집중 모드 (Zen Mode)
 
   const audioRef = useRef(null);
   const [playlist, setPlaylist] = useState([]); // [{ name: string, url: string }]
@@ -153,6 +154,42 @@ export default function App() {
       Notification.requestPermission();
     }
   }, [lastActiveDate, setLastActiveDate, setTodos]);
+
+  // ⌨️ 전역 키보드 단축키 (Zen 모드, 타이머 조작)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // 입력창(input, textarea)에서 타이핑 중일 때는 단축키 무시
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      const isInputting = activeTag === 'input' || activeTag === 'textarea' || document.activeElement?.isContentEditable;
+      if (isInputting) return;
+
+      switch (e.code) {
+        case 'Escape':
+          // 열려있는 모달 요소들 닫기
+          setShowAddModal(false);
+          setShowDDayModal(false);
+          setShowSettingsModal(false);
+          setShowHeatmapModal(false);
+          setShowGardenAlbum(false);
+          break;
+        case 'Space':
+          // 타이머 시작/일시정지 토글 (기본 스크롤 방지)
+          e.preventDefault();
+          setIsPomoActive(prev => !prev);
+          break;
+        case 'KeyZ':
+          // Zen Mode 토글
+          e.preventDefault();
+          setIsZenMode(prev => !prev);
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // ☁️ 날씨 정보 패치 및 테마 자동 연동
   useEffect(() => {
@@ -623,40 +660,54 @@ export default function App() {
         {/* 실제 컨텐츠 */}
         <div className="relative z-10 flex-1 text-slate-700 dark:text-slate-100 p-4 md:p-8">
 
-          <Header
-            isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}
-            searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-            setShowSettingsModal={setShowSettingsModal} setShowQuoteModal={setShowQuoteModal}
-            streakData={streakData} rankTitle={rankTitle} todaysQuote={todaysQuote} aiGreeting={aiGreeting}
-            currentMood={currentMood} setCurrentMood={setCurrentMood} MOODS={MOODS}
-            isGoogleLoggedIn={isGoogleLoggedIn}
-            onGoogleLogin={redirectToGoogleLogin}
-            onGoogleLogout={redirectToLogout}
-            onShowHeatmap={() => setShowHeatmapModal(true)}
-            onShowGardenAlbum={() => setShowGardenAlbum(true)}
-            weatherData={weatherData}
-          />
-
-          <Dashboard
-            totalReadings={totalReadings} todoCompletionRate={todoCompletionRate}
-            requiredPace={requiredPace} targetReadings={targetReadings}
-            setTargetReadings={setTargetReadings} weeklyChartData={weeklyChartData}
-          />
-
-          <DDaySection dDays={dDays} setDDays={setDDays} openEditDDay={openEditDDay} />
-
-          <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-8 space-y-8">
-              <CalendarView
-                currentDate={currentDate} setCurrentDate={setCurrentDate} days={days} events={events}
-                selectedDate={selectedDate} setSelectedDate={setSelectedDate} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-                subjects={subjects} toggleReading={toggleReading} deleteSubject={deleteSubject} addSubject={addSubject}
-                newSubjectName={newSubjectName} setNewSubjectName={setNewSubjectName}
-                newSubjectColor={newSubjectColor} setNewSubjectColor={setNewSubjectColor}
+          {!isZenMode && (
+            <>
+              <Header
+                isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}
+                searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                setShowSettingsModal={setShowSettingsModal} setShowQuoteModal={setShowQuoteModal}
+                streakData={streakData} rankTitle={rankTitle} todaysQuote={todaysQuote} aiGreeting={aiGreeting}
+                currentMood={currentMood} setCurrentMood={setCurrentMood} MOODS={MOODS}
+                isGoogleLoggedIn={isGoogleLoggedIn}
+                onGoogleLogin={redirectToGoogleLogin}
+                onGoogleLogout={redirectToLogout}
+                onShowHeatmap={() => setShowHeatmapModal(true)}
+                onShowGardenAlbum={() => setShowGardenAlbum(true)}
+                weatherData={weatherData}
               />
-            </div>
 
-            <div className="lg:col-span-4 space-y-8">
+              <Dashboard
+                totalReadings={totalReadings} todoCompletionRate={todoCompletionRate}
+                requiredPace={requiredPace} targetReadings={targetReadings}
+                setTargetReadings={setTargetReadings} weeklyChartData={weeklyChartData}
+              />
+
+              <DDaySection dDays={dDays} setDDays={setDDays} openEditDDay={openEditDDay} />
+            </>
+          )}
+
+          <main className={`mx-auto grid grid-cols-1 gap-8 ${isZenMode ? 'max-w-4xl place-items-center min-h-[80vh] flex flex-col justify-center' : 'max-w-7xl lg:grid-cols-12'}`}>
+
+            {!isZenMode && (
+              <div className="lg:col-span-8 space-y-8">
+                <CalendarView
+                  currentDate={currentDate} setCurrentDate={setCurrentDate} days={days} events={events}
+                  selectedDate={selectedDate} setSelectedDate={setSelectedDate} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                  subjects={subjects} toggleReading={toggleReading} deleteSubject={deleteSubject} addSubject={addSubject}
+                  newSubjectName={newSubjectName} setNewSubjectName={setNewSubjectName}
+                  newSubjectColor={newSubjectColor} setNewSubjectColor={setNewSubjectColor}
+                />
+              </div>
+            )}
+
+            <div className={`${isZenMode ? 'w-full max-w-2xl mx-auto' : 'lg:col-span-4'} space-y-8 transition-all duration-700`}>
+
+              {isZenMode && (
+                <div className="text-center mb-6 animate-pulse text-white/70 tracking-widest text-sm font-medium">
+                  🧘🏼 Z 키를 눌러 젠 모드를 종료합니다
+                </div>
+              )}
+
               <PomodoroTimer
                 themeBg={appBgClasses} currentMood={currentMood} defaultSound={currentMoodData.defaultSound}
                 timerMode={timerMode} setTimerMode={setTimerMode} isPomoActive={isPomoActive} setIsPomoActive={setIsPomoActive}
@@ -669,15 +720,18 @@ export default function App() {
                 playTrack={playTrack} removeTrack={removeTrack} setPlaylist={setPlaylist} setIsPlayingAudio={setIsPlayingAudio} setCurrentTrackIdx={setCurrentTrackIdx}
                 showParcel={showParcel} setShowParcel={setShowParcel}
                 weatherData={weatherData}
+                isZenMode={isZenMode} // 타이머 내부 UI 변경용 상태 전달
               />
 
-              <TodoSection
-                selectedDate={selectedDate} diaries={diaries} saveDiary={saveDiary}
-                todos={todos} addTodo={addTodo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} newTodo={newTodo} setNewTodo={setNewTodo} celebratingId={celebratingId}
-                searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
-                setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
-                pomoSessions={pomoSessions} currentMood={currentMood} weatherData={weatherData}
-              />
+              {!isZenMode && (
+                <TodoSection
+                  selectedDate={selectedDate} diaries={diaries} saveDiary={saveDiary}
+                  todos={todos} addTodo={addTodo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} reorderTodos={setTodos} newTodo={newTodo} setNewTodo={setNewTodo} celebratingId={celebratingId}
+                  searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
+                  setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
+                  pomoSessions={pomoSessions} currentMood={currentMood} weatherData={weatherData}
+                />
+              )}
             </div>
           </main>
 

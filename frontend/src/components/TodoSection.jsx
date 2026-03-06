@@ -1,17 +1,39 @@
 import { useState } from 'react';
-import { PenTool, CheckSquare, Plus, CheckCircle2, Trash2, CalendarDays, MapPin, Clock, Sparkles, Loader2 } from 'lucide-react';
+import { PenTool, CheckSquare, Plus, CheckCircle2, Trash2, CalendarDays, MapPin, Clock, Sparkles, Loader2, GripVertical } from 'lucide-react';
 import { CATEGORIES } from '../constants';
 import { formatYMD } from '../utils/dateHelpers';
 import { generateDailySummary } from '../utils/api';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export default function TodoSection({
     selectedDate, diaries, saveDiary,
-    todos, addTodo, toggleTodo, deleteTodo, newTodo, setNewTodo, celebratingId,
+    todos, addTodo, toggleTodo, deleteTodo, reorderTodos, newTodo, setNewTodo, celebratingId,
     searchQuery, displayedEvents, deleteEvent,
     setNewEventDate, setShowAddModal,
     pomoSessions, currentMood, weatherData
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
+    const [activeId, setActiveId] = useState(null);
+
+    // 🖱️ PointerSensor: 5px 이상 드래그해야 시작 (클릭과 구분)
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    );
+
+    // 드래그 종료 시 순서 재배열
+    const handleDragEnd = (event) => {
+        const { active, over } = event;
+        setActiveId(null);
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = todos.findIndex(t => t.id === active.id);
+        const newIndex = todos.findIndex(t => t.id === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) {
+            reorderTodos(arrayMove(todos, oldIndex, newIndex));
+        }
+    };
 
     // 📝 AI 하루 요약 생성
     const handleAISummary = async () => {
@@ -45,6 +67,8 @@ export default function TodoSection({
         }
     };
 
+    const activeTodo = activeId ? todos.find(t => t.id === activeId) : null;
+
     return (
         <>
             {/* Daily Retrospective (오늘의 항해 일지) */}
@@ -77,33 +101,44 @@ export default function TodoSection({
                 </button>
             </div>
 
-            {/* Daily To-Do 🎉 폭죽 애니메이션 추가됨 */}
+            {/* Daily To-Do 🎉 드래그 앤 드롭 정렬 + 폭죽 애니메이션 */}
             <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 relative">
                 <h3 className="text-xl font-black mb-6 flex items-center gap-3"><CheckSquare className="w-6 h-6 text-green-500" /> 오늘 나의 목표</h3>
                 <form onSubmit={addTodo} className="mb-6 flex gap-2">
                     <input type="text" placeholder="오늘 할 일..." className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-green-500 outline-none" value={newTodo} onChange={(e) => setNewTodo(e.target.value)} />
                     <button type="submit" className="bg-green-600 text-white p-2.5 rounded-2xl hover:bg-green-700 transition-all cursor-pointer"><Plus className="w-5 h-5" /></button>
                 </form>
-                <div className="space-y-3">
-                    {todos.map(todo => (
-                        <div key={todo.id} className="relative flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
-                            {/* 🎉 폭죽 파티 효과 */}
-                            {celebratingId === todo.id && (
-                                <div className="absolute left-2 -top-4 pointer-events-none z-50 flex gap-1 text-2xl">
-                                    <span className="confetti-anim" style={{ animationDelay: '0ms' }}>🎉</span>
-                                    <span className="confetti-anim" style={{ animationDelay: '100ms' }}>✨</span>
-                                    <span className="confetti-anim" style={{ animationDelay: '200ms' }}>🎊</span>
-                                </div>
-                            )}
-                            <div onClick={() => toggleTodo(todo.id)} className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 z-10 ${todo.completed ? 'bg-green-500 border-green-500' : 'border-slate-300'}`}>
-                                {todo.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
-                            </div>
-                            <span onClick={() => toggleTodo(todo.id)} className={`text-sm font-medium transition-all flex-1 cursor-pointer z-10 ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{todo.text}</span>
-                            <button onClick={() => deleteTodo(todo.id)} className="cursor-pointer text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"><Trash2 className="w-4 h-4" /></button>
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={({ active }) => setActiveId(active.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragCancel={() => setActiveId(null)}
+                >
+                    <SortableContext items={todos.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-3">
+                            {todos.map(todo => (
+                                <SortableTodoItem
+                                    key={todo.id}
+                                    todo={todo}
+                                    toggleTodo={toggleTodo}
+                                    deleteTodo={deleteTodo}
+                                    celebratingId={celebratingId}
+                                    isDragging={activeId === todo.id}
+                                />
+                            ))}
+                            {todos.length === 0 && <p className="text-center text-sm text-slate-400 py-4">모든 할 일을 마쳤거나, 아직 없네요! ☕</p>}
                         </div>
-                    ))}
-                    {todos.length === 0 && <p className="text-center text-sm text-slate-400 py-4">모든 할 일을 마쳤거나, 아직 없네요! ☕</p>}
-                </div>
+                    </SortableContext>
+                    <DragOverlay>
+                        {activeTodo ? (
+                            <div className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-800 shadow-2xl border-2 border-green-400 opacity-90">
+                                <GripVertical className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                <span className={`text-sm font-medium flex-1 ${activeTodo.completed ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{activeTodo.text}</span>
+                            </div>
+                        ) : null}
+                    </DragOverlay>
+                </DndContext>
             </div>
 
             {/* Schedule Info */}
@@ -145,5 +180,55 @@ export default function TodoSection({
                 </div>
             </div>
         </>
+    );
+}
+
+// 🔀 드래그 가능한 할 일 항목 컴포넌트
+function SortableTodoItem({ todo, toggleTodo, deleteTodo, celebratingId, isDragging }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: todo.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className="relative flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
+        >
+            {/* 🎉 폭죽 파티 효과 */}
+            {celebratingId === todo.id && (
+                <div className="absolute left-2 -top-4 pointer-events-none z-50 flex gap-1 text-2xl">
+                    <span className="confetti-anim" style={{ animationDelay: '0ms' }}>🎉</span>
+                    <span className="confetti-anim" style={{ animationDelay: '100ms' }}>✨</span>
+                    <span className="confetti-anim" style={{ animationDelay: '200ms' }}>🎊</span>
+                </div>
+            )}
+
+            {/* 🔀 드래그 핸들 */}
+            <button
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 flex-shrink-0 touch-none"
+                title="드래그하여 순서 변경"
+            >
+                <GripVertical className="w-4 h-4" />
+            </button>
+
+            <div onClick={() => toggleTodo(todo.id)} className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 z-10 ${todo.completed ? 'bg-green-500 border-green-500' : 'border-slate-300'}`}>
+                {todo.completed && <CheckCircle2 className="w-3 h-3 text-white" />}
+            </div>
+            <span onClick={() => toggleTodo(todo.id)} className={`text-sm font-medium transition-all flex-1 cursor-pointer z-10 ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{todo.text}</span>
+            <button onClick={() => deleteTodo(todo.id)} className="cursor-pointer text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"><Trash2 className="w-4 h-4" /></button>
+        </div>
     );
 }

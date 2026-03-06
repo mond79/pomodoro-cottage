@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Headphones, Music, Volume2, Save, Trash2 } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Headphones, Music, Volume2, Save, Trash2, Brain } from 'lucide-react';
 import { fetchAmbientSounds, getAudioUrl } from '../utils/api';
 import { GARDEN_STAGES, BGM_PRESETS } from '../constants';
 
@@ -14,7 +14,8 @@ export default function PomodoroTimer({
     playlist, currentTrackIdx, isPlayingAudio, toggleAudio, handleAudioUpload, audioRef,
     playTrack, removeTrack,
     showParcel, setShowParcel,
-    weatherData
+    weatherData,
+    isZenMode = false
 }) {
     // === 🎧 감성 사운드 믹서 (다중 동시 재생) ===
     const [serverSounds, setServerSounds] = useState([]);
@@ -31,6 +32,54 @@ export default function PomodoroTimer({
 
     // === 로파이 BGM (채널 2) — 기존 audioRef 사용 ===
     const [lofiVolume, setLofiVolume] = useState(0.5);
+
+    // === 🧠 스마트 타이머 추천 (규칙 기반) ===
+    const smartRecommendation = useMemo(() => {
+        if (!pomoSessions || pomoSessions.length < 3) return null;
+
+        const currentHour = new Date().getHours();
+        // 현재 시간대 ±2시간 범위의 과거 세션 필터링
+        const relevantSessions = pomoSessions.filter(s => {
+            if (!s.startTime) return false;
+            const sessionHour = parseInt(s.startTime.split(':')[0], 10);
+            return Math.abs(sessionHour - currentHour) <= 2 ||
+                Math.abs(sessionHour - currentHour) >= 22; // 자정 근처 보정
+        });
+
+        // 데이터가 충분하지 않으면 전체 세션으로 폴백
+        const sessions = relevantSessions.length >= 3 ? relevantSessions : pomoSessions;
+        const avgDuration = sessions.reduce((sum, s) => sum + (s.duration || 25), 0) / sessions.length;
+
+        // 시간대 라벨
+        const getTimeLabel = (h) => {
+            if (h >= 5 && h < 9) return '이른 아침';
+            if (h >= 9 && h < 12) return '오전';
+            if (h >= 12 && h < 14) return '점심 즈음';
+            if (h >= 14 && h < 18) return '오후';
+            if (h >= 18 && h < 21) return '저녁';
+            return '심야';
+        };
+        const timeLabel = getTimeLabel(currentHour);
+
+        // 프리셋 후보 중 평균에 가장 가까운 값 선택
+        const presets = [10, 25, 50];
+        const recommended = presets.reduce((prev, curr) =>
+            Math.abs(curr - avgDuration) < Math.abs(prev - avgDuration) ? curr : prev
+        );
+
+        // 성공률 (완료된 세션 비율)
+        const completedCount = sessions.filter(s => s.duration >= 10).length;
+        const successRate = Math.round((completedCount / sessions.length) * 100);
+
+        let reason;
+        if (relevantSessions.length >= 3) {
+            reason = `${timeLabel} 시간대 평균 집중 ${Math.round(avgDuration)}분 · 성공률 ${successRate}% (${sessions.length}회 기록 기반)`;
+        } else {
+            reason = `전체 평균 집중 ${Math.round(avgDuration)}분 · 성공률 ${successRate}% (${sessions.length}회 누적 기록)`;
+        }
+
+        return { recommended, reason, avgDuration: Math.round(avgDuration) };
+    }, [pomoSessions]);
 
     // === 🎧 사운드 프리셋 ===
     const [soundPresets, setSoundPresets] = useState(() => {
@@ -346,6 +395,31 @@ export default function PomodoroTimer({
                     {timerMode === 'work' ? `세상과 단절하고 몰입하는 ${pomoDuration}분` : '하늘을 보고 기지개를 켜는 10분'}
                 </p>
 
+                {/* 🧠 스마트 타이머 추천 */}
+                {timerMode === 'work' && smartRecommendation && !isPomoActive && (
+                    <button
+                        onClick={() => changePomoDuration(smartRecommendation.recommended)}
+                        className={`w-full mb-4 p-3 rounded-xl border text-left transition-all cursor-pointer group hover:scale-[1.02] active:scale-95
+                            ${pomoDuration === smartRecommendation.recommended
+                                ? 'bg-yellow-500/15 border-yellow-500/40 shadow-[0_0_12px_rgba(250,204,21,0.15)]'
+                                : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-yellow-500/30'
+                            }
+                        `}
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <Brain className={`w-4 h-4 flex-shrink-0 ${pomoDuration === smartRecommendation.recommended ? 'text-yellow-400' : 'text-slate-400 group-hover:text-yellow-400'} transition-colors`} />
+                            <div className="flex-1 min-w-0">
+                                <div className={`text-[11px] font-bold ${pomoDuration === smartRecommendation.recommended ? 'text-yellow-300' : 'text-slate-300'}`}>
+                                    🧠 AI 추천: 지금은 <span className="text-yellow-400">{smartRecommendation.recommended}분</span>이 최적이에요
+                                </div>
+                                <div className="text-[9px] text-slate-500 mt-0.5 truncate">
+                                    {smartRecommendation.reason}
+                                </div>
+                            </div>
+                        </div>
+                    </button>
+                )}
+
                 {/* 타이머 */}
                 <div className="flex items-center justify-between mb-6">
                     <span className={`text-6xl font-black tabular-nums tracking-tighter transition-all 
@@ -380,7 +454,7 @@ export default function PomodoroTimer({
                 </div>
 
                 {/* 📚 과목 선택 칩 */}
-                {subjects && subjects.length > 0 && (
+                {!isZenMode && subjects && subjects.length > 0 && (
                     <div className={`mb-4 p-3 rounded-xl border transition-colors ${timerMode === 'work' ? 'bg-white/5 border-white/10' : 'bg-teal-900/20 border-teal-500/30'}`}>
                         <div className={`text-[10px] font-bold mb-2 ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>📚 지금 공부할 과목</div>
                         <div className="flex flex-wrap gap-1.5">
@@ -415,18 +489,20 @@ export default function PomodoroTimer({
                 )}
 
                 {/* 🍅 토마토 농장 */}
-                <div className={`mb-4 p-3 rounded-xl border flex flex-col gap-2 transition-colors ${timerMode === 'work' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-teal-600/30 border-teal-500/50'}`}>
-                    <div className={`flex justify-between items-center text-xs font-bold ${timerMode === 'work' ? 'text-slate-400' : 'text-teal-100'}`}>
-                        <span>{selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일 수확한 토마토</span>
-                        <span className={`px-2 py-0.5 rounded-full ${timerMode === 'work' ? 'bg-slate-700' : 'bg-teal-700'}`}>{selectedDateTomatoes}개</span>
+                {!isZenMode && (
+                    <div className={`mb-4 p-3 rounded-xl border flex flex-col gap-2 transition-colors ${timerMode === 'work' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-teal-600/30 border-teal-500/50'}`}>
+                        <div className={`flex justify-between items-center text-xs font-bold ${timerMode === 'work' ? 'text-slate-400' : 'text-teal-100'}`}>
+                            <span>{selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일 수확한 토마토</span>
+                            <span className={`px-2 py-0.5 rounded-full ${timerMode === 'work' ? 'bg-slate-700' : 'bg-teal-700'}`}>{selectedDateTomatoes}개</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 min-h-[28px] items-center">
+                            {Array.from({ length: selectedDateTomatoes }).map((_, i) => (
+                                <span key={i} className="text-xl animate-in zoom-in duration-300" style={{ animationDelay: `${i * 100}ms` }}>🍅</span>
+                            ))}
+                            {selectedDateTomatoes === 0 && <span className={`text-xs italic ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200'}`}>아직 수확한 토마토가 없어요</span>}
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-1 min-h-[28px] items-center">
-                        {Array.from({ length: selectedDateTomatoes }).map((_, i) => (
-                            <span key={i} className="text-xl animate-in zoom-in duration-300" style={{ animationDelay: `${i * 100}ms` }}>🍅</span>
-                        ))}
-                        {selectedDateTomatoes === 0 && <span className={`text-xs italic ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200'}`}>아직 수확한 토마토가 없어요</span>}
-                    </div>
-                </div>
+                )}
 
                 {/* 🪴 나의 오두막 미니 정원 (Phase 16: 실사 토마토 성장) */}
                 <div className={`mb-4 p-4 rounded-xl shadow-inner border transition-colors ${timerMode === 'work' ? 'bg-black/20 border-white/10' : 'bg-teal-900/30 border-teal-500/30'}`}>
@@ -479,76 +555,78 @@ export default function PomodoroTimer({
                 </div>
 
                 {/* 🐱 오두막 식구 (누적 달성도) */}
-                <div className={`mb-4 p-3 rounded-xl border transition-colors ${timerMode === 'work' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-teal-600/30 border-teal-500/50'}`}>
-                    {(() => {
-                        // pomoSessions 전체 길이 = 누적 토마토 수
-                        const lifetimeTotal = pomoSessions?.length || 0;
-                        if (lifetimeTotal === 0) return null;
+                {!isZenMode && (
+                    <div className={`mb-4 p-3 rounded-xl border transition-colors ${timerMode === 'work' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-teal-600/30 border-teal-500/50'}`}>
+                        {(() => {
+                            // pomoSessions 전체 길이 = 누적 토마토 수
+                            const lifetimeTotal = pomoSessions?.length || 0;
+                            if (lifetimeTotal === 0) return null;
 
-                        const milestones = [
-                            { min: 5, emoji: '🐛', name: '벌레 친구', desc: '정원에 벌레가 놀러 왔어요!' },
-                            { min: 10, emoji: '🦋', name: '나비', desc: '예쁜 나비가 날아다녀요!' },
-                            { min: 20, emoji: '🐦', name: '참새', desc: '참새가 지붕 위에 앉았어요!' },
-                            { min: 35, emoji: '🐱', name: '길고양이', desc: '길고양이가 창가에서 낮잠을 자요!' },
-                            { min: 50, emoji: '📚', name: '책장', desc: '오두막에 책이 가득 쌓여요!' },
-                            { min: 75, emoji: '🕯️', name: '촛불', desc: '따뜻한 촛불이 켜졌어요!' },
-                            { min: 100, emoji: '🔥', name: '벽난로', desc: '따뜻한 벽난로가 활활 타올라요!' },
-                            { min: 150, emoji: '🌈', name: '무지개', desc: '오두막 위로 무지개가 떴어요!' },
-                            { min: 200, emoji: '⭐', name: '별', desc: '하늘에서 별이 빛나요!' },
-                        ];
+                            const milestones = [
+                                { min: 5, emoji: '🐛', name: '벌레 친구', desc: '정원에 벌레가 놀러 왔어요!' },
+                                { min: 10, emoji: '🦋', name: '나비', desc: '예쁜 나비가 날아다녀요!' },
+                                { min: 20, emoji: '🐦', name: '참새', desc: '참새가 지붕 위에 앉았어요!' },
+                                { min: 35, emoji: '🐱', name: '길고양이', desc: '길고양이가 창가에서 낮잠을 자요!' },
+                                { min: 50, emoji: '📚', name: '책장', desc: '오두막에 책이 가득 쌓여요!' },
+                                { min: 75, emoji: '🕯️', name: '촛불', desc: '따뜻한 촛불이 켜졌어요!' },
+                                { min: 100, emoji: '🔥', name: '벽난로', desc: '따뜻한 벽난로가 활활 타올라요!' },
+                                { min: 150, emoji: '🌈', name: '무지개', desc: '오두막 위로 무지개가 떴어요!' },
+                                { min: 200, emoji: '⭐', name: '별', desc: '하늘에서 별이 빛나요!' },
+                            ];
 
-                        const unlocked = milestones.filter(m => lifetimeTotal >= m.min);
-                        const nextMilestone = milestones.find(m => lifetimeTotal < m.min);
+                            const unlocked = milestones.filter(m => lifetimeTotal >= m.min);
+                            const nextMilestone = milestones.find(m => lifetimeTotal < m.min);
 
-                        return (
-                            <div className={`mt-2 pt-2 border-t ${timerMode === 'work' ? 'border-slate-700/50' : 'border-teal-500/30'}`}>
-                                <div className={`text-[10px] font-bold mb-1.5 flex items-center justify-between ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
-                                    <span>🐱 오두막 식구 (누적 {lifetimeTotal}🍅)</span>
-                                    {nextMilestone && (
-                                        <span className={`text-[9px] ${timerMode === 'work' ? 'text-slate-600' : 'text-teal-300/50'}`}>
-                                            다음: {nextMilestone.emoji} ({nextMilestone.min - lifetimeTotal}🍅 남음)
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                    {unlocked.map((m, i) => (
-                                        <span
-                                            key={i}
-                                            onClick={() => handleCreatureClick(m)}
-                                            className={`text-xl transition-all duration-300 hover:scale-150 cursor-pointer relative
+                            return (
+                                <div className={`mt-2 pt-2 border-t ${timerMode === 'work' ? 'border-slate-700/50' : 'border-teal-500/30'}`}>
+                                    <div className={`text-[10px] font-bold mb-1.5 flex items-center justify-between ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
+                                        <span>🐱 오두막 식구 (누적 {lifetimeTotal}🍅)</span>
+                                        {nextMilestone && (
+                                            <span className={`text-[9px] ${timerMode === 'work' ? 'text-slate-600' : 'text-teal-300/50'}`}>
+                                                다음: {nextMilestone.emoji} ({nextMilestone.min - lifetimeTotal}🍅 남음)
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        {unlocked.map((m, i) => (
+                                            <span
+                                                key={i}
+                                                onClick={() => handleCreatureClick(m)}
+                                                className={`text-xl transition-all duration-300 hover:scale-150 cursor-pointer relative
                                                 ${speechBubble?.emoji === m.emoji ? 'scale-125 animate-bounce' : ''}
                                             `}
-                                            title={`${m.name}을(를) 클릭해 보세요!`}
-                                        >
-                                            {m.emoji}
-                                        </span>
-                                    ))}
-                                </div>
+                                                title={`${m.name}을(를) 클릭해 보세요!`}
+                                            >
+                                                {m.emoji}
+                                            </span>
+                                        ))}
+                                    </div>
 
-                                {/* 💬 말풍선 */}
-                                {speechBubble && (
-                                    <div className={`mt-2 p-2.5 rounded-xl text-[11px] font-medium animate-in fade-in slide-in-from-bottom-2 duration-300
+                                    {/* 💬 말풍선 */}
+                                    {speechBubble && (
+                                        <div className={`mt-2 p-2.5 rounded-xl text-[11px] font-medium animate-in fade-in slide-in-from-bottom-2 duration-300
                                         ${timerMode === 'work' ? 'bg-slate-700/80 text-slate-200 border border-slate-600/50' : 'bg-teal-600/40 text-teal-50 border border-teal-400/30'}
                                     `}>
-                                        <div className="flex items-start gap-2">
-                                            <span className="text-lg flex-shrink-0">{speechBubble.emoji}</span>
-                                            <div>
-                                                <div className={`text-[9px] font-bold mb-0.5 ${timerMode === 'work' ? 'text-yellow-400' : 'text-teal-200'}`}>
-                                                    {speechBubble.name}
+                                            <div className="flex items-start gap-2">
+                                                <span className="text-lg flex-shrink-0">{speechBubble.emoji}</span>
+                                                <div>
+                                                    <div className={`text-[9px] font-bold mb-0.5 ${timerMode === 'work' ? 'text-yellow-400' : 'text-teal-200'}`}>
+                                                        {speechBubble.name}
+                                                    </div>
+                                                    <div>"{speechBubble.message}"</div>
                                                 </div>
-                                                <div>"{speechBubble.message}"</div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })()}
-                </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
 
 
                 {/* 📝 최근 세션 타임라인 */}
-                {pomoSessions && pomoSessions.length > 0 && (
+                {!isZenMode && pomoSessions && pomoSessions.length > 0 && (
                     <div className={`mb-4 p-3 rounded-xl border transition-colors ${timerMode === 'work' ? 'bg-white/5 border-white/10' : 'bg-teal-900/20 border-teal-500/30'}`}>
                         <div className={`text-[10px] font-bold mb-2 ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>📝 오늘의 집중 타임라인</div>
                         <div className="flex flex-col gap-1 max-h-28 overflow-y-auto pr-1">
@@ -568,7 +646,7 @@ export default function PomodoroTimer({
                 )}
 
                 {/* 🌱 오늘의 씨앗 (할 일 시각화) */}
-                {todos && todos.length > 0 && (
+                {!isZenMode && todos && todos.length > 0 && (
                     <div className={`mb-3 p-3 rounded-xl border transition-colors ${timerMode === 'work' ? 'bg-white/10 border-white/5' : 'bg-teal-900/20 border-teal-100/20'}`}>
                         <div className={`text-[10px] font-bold mb-2 ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
                             🌱 오늘의 씨앗 ({todos.filter(t => t.completed).length}/{todos.length})
@@ -608,247 +686,247 @@ export default function PomodoroTimer({
                 {/* ═══════════════════════════════════════════ */}
                 {/* 🎧 채널 1: 환경음 (서버) */}
                 {/* ═══════════════════════════════════════════ */}
-                <div className={`p-4 rounded-2xl backdrop-blur-sm border transition-colors mb-3 ${timerMode === 'work' ? 'bg-white/10 border-white/5' : 'bg-teal-900/20 border-teal-100/20'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <Volume2 className={`w-4 h-4 ${timerMode === 'work' ? 'text-emerald-400' : 'text-teal-200'}`} />
-                            <span className={`text-sm font-bold ${timerMode === 'work' ? 'text-slate-200' : 'text-white'}`}>🎧 사운드 믹서</span>
-                            {activeSounds.size > 0 && (
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${timerMode === 'work' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-teal-300/20 text-teal-200'}`}>
-                                    {activeSounds.size}개 재생 중
-                                </span>
-                            )}
-                            {/* AI BGM 버튼 */}
-                            <button
-                                onClick={() => setIsAutoBGMEnabled(true)}
-                                title="현재 날씨·시간에 맞는 환경음을 자동으로 골라줍니다"
-                                className={`flex items-center gap-1 px-2 py-0.5 ml-1 rounded-full text-[10px] font-bold transition-all cursor-pointer border
-                                    ${isAutoBGMEnabled
-                                        ? 'bg-yellow-400/20 text-yellow-300 border-yellow-400/50 shadow-[0_0_8px_rgba(250,204,21,0.3)]'
-                                        : (timerMode === 'work' ? 'bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-600' : 'bg-teal-800/50 text-teal-300 border-teal-700/50 hover:bg-teal-700/50')
-                                    }
-                                `}
-                            >
-                                <span>✨</span> AI 추천 {isAutoBGMEnabled && 'ON'}
-                            </button>
-                        </div>
-                        {activeSounds.size > 0 && (
-                            <button
-                                onClick={toggleAllAmbient}
-                                className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer
-                                    ${timerMode === 'work' ? 'bg-red-500/80 text-white hover:bg-red-600' : 'bg-teal-200 text-teal-800'}
-                                `}
-                            >
-                                전체 정지
-                            </button>
-                        )}
-                    </div>
-
-                    {serverSounds.length > 0 && (
-                        <div className="flex flex-col gap-2">
-                            {serverSounds.map(sound => {
-                                const isActive = activeSounds.has(sound);
-                                const label = sound.replace(/\.(mp3|wav|ogg)$/i, '');
-                                const vol = mixerVolumes[sound] ?? 0.5;
-                                return (
-                                    <div key={sound} className={`flex items-center gap-2 p-2 rounded-xl transition-all
-                                        ${isActive
-                                            ? (timerMode === 'work' ? 'bg-emerald-500/15 border border-emerald-500/30' : 'bg-white/10 border border-teal-200/30')
-                                            : (timerMode === 'work' ? 'bg-slate-800/50' : 'bg-teal-800/30')
-                                        }
-                                    `}>
-                                        {/* 토글 버튼 */}
-                                        <button
-                                            onClick={() => toggleMixerSound(sound)}
-                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0
-                                                ${isActive
-                                                    ? (timerMode === 'work'
-                                                        ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                                                        : 'bg-white text-teal-700 shadow-md')
-                                                    : (timerMode === 'work'
-                                                        ? 'bg-slate-700/80 text-slate-400 hover:bg-slate-600'
-                                                        : 'bg-teal-600/50 text-teal-100 hover:bg-teal-500/50')
-                                                }
-                                            `}
-                                        >
-                                            <Volume2 className="w-3 h-3" />
-                                            {label}
-                                        </button>
-
-                                        {/* 개별 볼륨 슬라이더 (활성 시만) */}
-                                        {isActive && (
-                                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                                <input
-                                                    type="range" min="0" max="1" step="0.05"
-                                                    value={vol}
-                                                    onChange={(e) => changeMixerVolume(sound, parseFloat(e.target.value))}
-                                                    className="flex-1 h-1 accent-emerald-500 cursor-pointer"
-                                                />
-                                                <span className={`text-[9px] font-bold w-7 text-right flex-shrink-0 ${timerMode === 'work' ? 'text-emerald-400' : 'text-teal-200'}`}>
-                                                    {Math.round(vol * 100)}%
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                {/* ═══════════════════════════════════════════ */}
-                {/* 🎵 채널 2: 로파이 BGM (직접 업로드) */}
-                {/* ═══════════════════════════════════════════ */}
-                <div className={`p-4 rounded-2xl backdrop-blur-sm border transition-colors ${timerMode === 'work' ? 'bg-white/10 border-white/5' : 'bg-teal-900/20 border-teal-100/20'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <Headphones className={`w-4 h-4 ${timerMode === 'work' ? 'text-purple-400' : 'text-teal-200'}`} />
-                            <span className={`text-sm font-bold ${timerMode === 'work' ? 'text-slate-200' : 'text-white'}`}>🎶 로파이 BGM</span>
-                        </div>
-                        {playlist.length > 0 && (
-                            <button
-                                onClick={toggleAudio}
-                                className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer
-                  ${isPlayingAudio
-                                        ? (timerMode === 'work' ? 'bg-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]' : 'bg-teal-200 text-teal-800')
-                                        : (timerMode === 'work' ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-teal-700 text-teal-100')
-                                    }
-                `}
-                            >
-                                {isPlayingAudio ? '일시정지' : '재생'}
-                            </button>
-                        )}
-                    </div>
-
-                    <label className={`relative flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl cursor-pointer transition-colors group overflow-hidden mb-3
-            ${timerMode === 'work' ? 'border-slate-600 hover:border-purple-400' : 'border-teal-400/50 hover:border-teal-200'}
-          `}>
-                        <input type="file" accept="audio/*" multiple onChange={handleAudioUpload} className="hidden" />
-                        <div className={`flex items-center gap-2 truncate ${timerMode === 'work' ? 'text-slate-400 group-hover:text-purple-300' : 'text-teal-200 group-hover:text-white'}`}>
-                            <Music className="w-4 h-4 flex-shrink-0" />
-                            <span className="text-xs font-medium truncate pl-1">
-                                {playlist.length > 0 ? `${playlist.length}개의 곡이 있음 (파일 더 추가하기)` : '클릭하여 로파이(mp3) 파일 올리기'}
-                            </span>
-                        </div>
-                    </label>
-
-                    {/* 플레이리스트 목록 */}
-                    {playlist.length > 0 && (
-                        <div className="flex flex-col gap-1.5 mb-4 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                            {playlist.map((track, idx) => (
-                                <div
-                                    key={idx}
-                                    onClick={() => playTrack(idx)}
-                                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-bold transition-all group/item cursor-pointer
-                                        ${idx === currentTrackIdx
-                                            ? (timerMode === 'work' ? 'bg-purple-500/30 text-purple-200 border border-purple-500/50' : 'bg-white/20 text-white')
-                                            : (timerMode === 'work' ? 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50' : 'bg-teal-700/30 text-teal-100 hover:bg-teal-600/30')}
-                                    `}
-                                >
-                                    <div className="flex items-center gap-2 truncate flex-1">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${idx === currentTrackIdx ? 'bg-purple-400 animate-pulse' : 'bg-transparent'}`} />
-                                        <span className="truncate">{track.name}</span>
-                                    </div>
-                                    <button
-                                        onClick={(e) => removeTrack(e, idx)}
-                                        className="p-1 opacity-0 group-hover/item:opacity-100 hover:text-red-400 transition-opacity"
-                                    >
-                                        <ResetIcon className="w-3 h-3 rotate-45" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* 🎧 사운드 프리셋 */}
-                    <div className={`mt-3 pt-3 border-t ${timerMode === 'work' ? 'border-white/5' : 'border-teal-500/20'}`}>
-                        <div className={`text-[10px] font-bold mb-2 ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
-                            🎧 나만의 감성 프리셋
-                        </div>
-
-                        {/* 저장 입력 */}
-                        {activeSounds.size > 0 && (
-                            <div className="flex gap-1.5 mb-2">
-                                <input
-                                    type="text"
-                                    placeholder="프리셋 이름 (예: 비 오는 밤의 서재)"
-                                    value={presetName}
-                                    onChange={(e) => setPresetName(e.target.value)}
-                                    className={`flex-1 px-2.5 py-1.5 rounded-lg text-[11px] outline-none transition-colors
-                                        ${timerMode === 'work' ? 'bg-slate-800/70 text-slate-200 placeholder-slate-500' : 'bg-teal-800/50 text-teal-100 placeholder-teal-300/40'}
-                                    `}
-                                />
+                <div className={`grid gap-4 ${isZenMode ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                    <div className={`p-4 rounded-2xl backdrop-blur-sm border transition-colors mb-3 ${timerMode === 'work' ? 'bg-white/10 border-white/5' : 'bg-teal-900/20 border-teal-100/20'}`}>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <Volume2 className={`w-4 h-4 ${timerMode === 'work' ? 'text-emerald-400' : 'text-teal-200'}`} />
+                                <span className={`text-sm font-bold ${timerMode === 'work' ? 'text-slate-200' : 'text-white'}`}>🎧 사운드 믹서</span>
+                                {activeSounds.size > 0 && (
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${timerMode === 'work' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-teal-300/20 text-teal-200'}`}>
+                                        {activeSounds.size}개 재생 중
+                                    </span>
+                                )}
+                                {/* AI BGM 버튼 */}
                                 <button
-                                    onClick={handleSavePreset}
-                                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all
-                                        ${timerMode === 'work' ? 'bg-emerald-500/80 text-white hover:bg-emerald-500' : 'bg-teal-200 text-teal-800 hover:bg-teal-100'}
-                                    `}
+                                    onClick={() => setIsAutoBGMEnabled(true)}
+                                    title="현재 날씨·시간에 맞는 환경음을 자동으로 골라줍니다"
+                                    className={`flex items-center gap-1 px-2 py-0.5 ml-1 rounded-full text-[10px] font-bold transition-all cursor-pointer border
+                                    ${isAutoBGMEnabled
+                                            ? 'bg-yellow-400/20 text-yellow-300 border-yellow-400/50 shadow-[0_0_8px_rgba(250,204,21,0.3)]'
+                                            : (timerMode === 'work' ? 'bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-600' : 'bg-teal-800/50 text-teal-300 border-teal-700/50 hover:bg-teal-700/50')
+                                        }
+                                `}
                                 >
-                                    <Save className="w-3 h-3" /> 저장
+                                    <span>✨</span> AI 추천 {isAutoBGMEnabled && 'ON'}
                                 </button>
                             </div>
-                        )}
+                            {activeSounds.size > 0 && (
+                                <button
+                                    onClick={toggleAllAmbient}
+                                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer
+                                    ${timerMode === 'work' ? 'bg-red-500/80 text-white hover:bg-red-600' : 'bg-teal-200 text-teal-800'}
+                                `}
+                                >
+                                    전체 정지
+                                </button>
+                            )}
+                        </div>
 
-                        {/* 프리셋 리스트 */}
-                        {soundPresets.length > 0 ? (
-                            <div className="flex flex-col gap-1">
-                                {soundPresets.map(preset => (
-                                    <div key={preset.id} className={`flex items-center gap-1.5 p-1.5 rounded-lg text-[11px] group
-                                        ${timerMode === 'work' ? 'bg-slate-800/40 hover:bg-slate-700/50' : 'bg-teal-800/30 hover:bg-teal-700/40'}
+                        {serverSounds.length > 0 && (
+                            <div className="flex flex-col gap-2">
+                                {serverSounds.map(sound => {
+                                    const isActive = activeSounds.has(sound);
+                                    const label = sound.replace(/\.(mp3|wav|ogg)$/i, '');
+                                    const vol = mixerVolumes[sound] ?? 0.5;
+                                    return (
+                                        <div key={sound} className={`flex items-center gap-2 p-2 rounded-xl transition-all
+                                        ${isActive
+                                                ? (timerMode === 'work' ? 'bg-emerald-500/15 border border-emerald-500/30' : 'bg-white/10 border border-teal-200/30')
+                                                : (timerMode === 'work' ? 'bg-slate-800/50' : 'bg-teal-800/30')
+                                            }
                                     `}>
-                                        <button
-                                            onClick={() => handleLoadPreset(preset)}
-                                            className={`flex-1 text-left font-medium cursor-pointer truncate
-                                                ${timerMode === 'work' ? 'text-slate-300 hover:text-white' : 'text-teal-100 hover:text-white'}
+                                            {/* 토글 버튼 */}
+                                            <button
+                                                onClick={() => toggleMixerSound(sound)}
+                                                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0
+                                                ${isActive
+                                                        ? (timerMode === 'work'
+                                                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
+                                                            : 'bg-white text-teal-700 shadow-md')
+                                                        : (timerMode === 'work'
+                                                            ? 'bg-slate-700/80 text-slate-400 hover:bg-slate-600'
+                                                            : 'bg-teal-600/50 text-teal-100 hover:bg-teal-500/50')
+                                                    }
                                             `}
-                                        >
-                                            🎧 {preset.name}
-                                            <span className={`ml-1.5 text-[9px] ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-300/50'}`}>
-                                                ({preset.sounds.length}개 소리)
-                                            </span>
-                                        </button>
+                                            >
+                                                <Volume2 className="w-3 h-3" />
+                                                {label}
+                                            </button>
+
+                                            {/* 개별 볼륨 슬라이더 (활성 시만) */}
+                                            {isActive && (
+                                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                                    <input
+                                                        type="range" min="0" max="1" step="0.05"
+                                                        value={vol}
+                                                        onChange={(e) => changeMixerVolume(sound, parseFloat(e.target.value))}
+                                                        className="flex-1 h-1 accent-emerald-500 cursor-pointer"
+                                                    />
+                                                    <span className={`text-[9px] font-bold w-7 text-right flex-shrink-0 ${timerMode === 'work' ? 'text-emerald-400' : 'text-teal-200'}`}>
+                                                        {Math.round(vol * 100)}%
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ═══════════════════════════════════════════ */}
+                    {/* 🎵 채널 2: 로파이 BGM (직접 업로드) */}
+                    {/* ═══════════════════════════════════════════ */}
+                    <div className={`p-4 rounded-2xl backdrop-blur-sm border transition-colors ${timerMode === 'work' ? 'bg-white/10 border-white/5' : 'bg-teal-900/20 border-teal-100/20'}`}>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <Headphones className={`w-4 h-4 ${timerMode === 'work' ? 'text-purple-400' : 'text-teal-200'}`} />
+                                <span className={`text-sm font-bold ${timerMode === 'work' ? 'text-slate-200' : 'text-white'}`}>🎶 로파이 BGM</span>
+                            </div>
+                            {playlist.length > 0 && (
+                                <button
+                                    onClick={toggleAudio}
+                                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer
+                  ${isPlayingAudio
+                                            ? (timerMode === 'work' ? 'bg-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]' : 'bg-teal-200 text-teal-800')
+                                            : (timerMode === 'work' ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-teal-700 text-teal-100')
+                                        }
+                `}
+                                >
+                                    {isPlayingAudio ? '일시정지' : '재생'}
+                                </button>
+                            )}
+                        </div>
+
+                        <label className={`relative flex items-center justify-center w-full p-3 border-2 border-dashed rounded-xl cursor-pointer transition-colors group overflow-hidden mb-3
+            ${timerMode === 'work' ? 'border-slate-600 hover:border-purple-400' : 'border-teal-400/50 hover:border-teal-200'}
+          `}>
+                            <input type="file" accept="audio/*" multiple onChange={handleAudioUpload} className="hidden" />
+                            <div className={`flex items-center gap-2 truncate ${timerMode === 'work' ? 'text-slate-400 group-hover:text-purple-300' : 'text-teal-200 group-hover:text-white'}`}>
+                                <Music className="w-4 h-4 flex-shrink-0" />
+                                <span className="text-xs font-medium truncate pl-1">
+                                    {playlist.length > 0 ? `${playlist.length}개의 곡이 있음 (파일 더 추가하기)` : '클릭하여 로파이(mp3) 파일 올리기'}
+                                </span>
+                            </div>
+                        </label>
+
+                        {/* 플레이리스트 목록 */}
+                        {playlist.length > 0 && (
+                            <div className="flex flex-col gap-1.5 mb-4 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                                {playlist.map((track, idx) => (
+                                    <div
+                                        key={idx}
+                                        onClick={() => playTrack(idx)}
+                                        className={`flex items-center justify-between p-2 rounded-xl text-xs font-bold transition-all group/item cursor-pointer
+                                        ${idx === currentTrackIdx
+                                                ? (timerMode === 'work' ? 'bg-purple-500/30 text-purple-200 border border-purple-500/50' : 'bg-white/20 text-white')
+                                                : (timerMode === 'work' ? 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50' : 'bg-teal-700/30 text-teal-100 hover:bg-teal-600/30')}
+                                    `}
+                                    >
+                                        <div className="flex items-center gap-2 truncate flex-1">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${idx === currentTrackIdx ? 'bg-purple-400 animate-pulse' : 'bg-transparent'}`} />
+                                            <span className="truncate">{track.name}</span>
+                                        </div>
                                         <button
-                                            onClick={() => handleDeletePreset(preset.id)}
-                                            className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 cursor-pointer transition-opacity"
+                                            onClick={(e) => removeTrack(e, idx)}
+                                            className="p-1 opacity-0 group-hover/item:opacity-100 hover:text-red-400 transition-opacity"
                                         >
-                                            <Trash2 className="w-3 h-3" />
+                                            <ResetIcon className="w-3 h-3 rotate-45" />
                                         </button>
                                     </div>
                                 ))}
                             </div>
-                        ) : (
-                            <p className={`text-[10px] text-center py-1 ${timerMode === 'work' ? 'text-slate-600' : 'text-teal-300/40'}`}>
-                                소리를 재생한 후 저장해보세요!
-                            </p>
                         )}
-                    </div>
 
-                    {/* 로파이 볼륨 */}
-                    {playlist.length > 0 && (
-                        <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-bold ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>볼륨</span>
-                            <input
-                                type="range" min="0" max="1" step="0.05"
-                                value={lofiVolume}
-                                onChange={(e) => setLofiVolume(parseFloat(e.target.value))}
-                                className="flex-1 h-1 accent-purple-500 cursor-pointer"
-                            />
-                            <span className={`text-[10px] font-bold w-8 text-right ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
-                                {Math.round(lofiVolume * 100)}%
-                            </span>
+                        {/* 🎧 사운드 프리셋 */}
+                        <div className={`mt-3 pt-3 border-t ${timerMode === 'work' ? 'border-white/5' : 'border-teal-500/20'}`}>
+                            <div className={`text-[10px] font-bold mb-2 ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
+                                🎧 나만의 감성 프리셋
+                            </div>
+
+                            {/* 저장 입력 */}
+                            {activeSounds.size > 0 && (
+                                <div className="flex gap-1.5 mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="프리셋 이름 (예: 비 오는 밤의 서재)"
+                                        value={presetName}
+                                        onChange={(e) => setPresetName(e.target.value)}
+                                        className={`flex-1 px-2.5 py-1.5 rounded-lg text-[11px] outline-none transition-colors
+                                        ${timerMode === 'work' ? 'bg-slate-800/70 text-slate-200 placeholder-slate-500' : 'bg-teal-800/50 text-teal-100 placeholder-teal-300/40'}
+                                    `}
+                                    />
+                                    <button
+                                        onClick={handleSavePreset}
+                                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all
+                                        ${timerMode === 'work' ? 'bg-emerald-500/80 text-white hover:bg-emerald-500' : 'bg-teal-200 text-teal-800 hover:bg-teal-100'}
+                                    `}
+                                    >
+                                        <Save className="w-3 h-3" /> 저장
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* 프리셋 리스트 */}
+                            {soundPresets.length > 0 ? (
+                                <div className="flex flex-col gap-1">
+                                    {soundPresets.map(preset => (
+                                        <div key={preset.id} className={`flex items-center gap-1.5 p-1.5 rounded-lg text-[11px] group
+                                        ${timerMode === 'work' ? 'bg-slate-800/40 hover:bg-slate-700/50' : 'bg-teal-800/30 hover:bg-teal-700/40'}
+                                    `}>
+                                            <button
+                                                onClick={() => handleLoadPreset(preset)}
+                                                className={`flex-1 text-left font-medium cursor-pointer truncate
+                                                ${timerMode === 'work' ? 'text-slate-300 hover:text-white' : 'text-teal-100 hover:text-white'}
+                                            `}
+                                            >
+                                                🎧 {preset.name}
+                                                <span className={`ml-1.5 text-[9px] ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-300/50'}`}>
+                                                    ({preset.sounds.length}개 소리)
+                                                </span>
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeletePreset(preset.id)}
+                                                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 cursor-pointer transition-opacity"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className={`text-[10px] text-center py-1 ${timerMode === 'work' ? 'text-slate-600' : 'text-teal-300/40'}`}>
+                                    소리를 재생한 후 저장해보세요!
+                                </p>
+                            )}
                         </div>
-                    )}
-                    <audio
-                        ref={audioRef}
-                        onEnded={() => {
-                            const nextIdx = (currentTrackIdx + 1) % playlist.length;
-                            playTrack(nextIdx);
-                        }}
-                    />
+
+                        {/* 로파이 볼륨 */}
+                        {playlist.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>볼륨</span>
+                                <input
+                                    type="range" min="0" max="1" step="0.05"
+                                    value={lofiVolume}
+                                    onChange={(e) => setLofiVolume(parseFloat(e.target.value))}
+                                    className="flex-1 h-1 accent-purple-500 cursor-pointer"
+                                />
+                                <span className={`text-[10px] font-bold w-8 text-right ${timerMode === 'work' ? 'text-slate-500' : 'text-teal-200/70'}`}>
+                                    {Math.round(lofiVolume * 100)}%
+                                </span>
+                            </div>
+                        )}
+                        <audio
+                            ref={audioRef}
+                            onEnded={() => {
+                                const nextIdx = (currentTrackIdx + 1) % playlist.length;
+                                playTrack(nextIdx);
+                            }}
+                        />
+                    </div>
                 </div>
-
             </div>
-
             {/* 🎁 오두막 소포 팝업 모달 */}
             {showParcel && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
