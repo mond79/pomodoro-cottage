@@ -87,3 +87,14 @@ export const BGM_PRESETS = [
         message: '언제나 편안한 단골 카페 창가 자리를 준비해 두었어요. ☕'
     }
 ];
+
+// --- Phase 27: 성취 배지 및 레벨 시스템 ---
+export const ACHIEVEMENTS = [
+    { id: 'first_pomo', name: '새싹 항해사', description: '첫 뽀모도로 세션 완료', icon: '🌱', threshold: 1, type: 'total' },
+    { id: 'harvest_10', name: '능숙한 농부', description: '토마토 10개 수확 달성', icon: '🧺', threshold: 10, type: 'total' },
+    { id: 'harvest_50', name: '마을의 자랑', description: '토마토 50개 수확 달성', icon: '🏅', threshold: 50, type: 'total' },
+    { id: 'harvest_100', name: '오두막 주인', description: '토마토 100개 수확 달성', icon: '👑', threshold: 100, type: 'total' },
+    { id: 'night_owl', name: '밤의 파수꾼', description: '밤 11시 ~ 새벽 4시 사이 집중 완료', icon: '🦉', threshold: 1, type: 'special_time_night' },
+    { id: 'early_bird', name: '아침의 새', description: '새벽 4시 ~ 아침 8시 사이 집중 완료', icon: '🐦', threshold: 1, type: 'special_time_morning' },
+    { id: 'fire_focus', name: '몰입의 화신', description: '하루에 토마토 8개 이상 수확', icon: '🔥', threshold: 8, type: 'daily_peak' },
+];

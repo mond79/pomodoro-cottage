@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { X, Save, UploadCloud, Plus, Trash2, Palette, Database } from 'lucide-react';
-import { CATEGORIES } from '../constants';
+import { X, Save, UploadCloud, Plus, Trash2, Palette, Database, Trophy } from 'lucide-react';
+import { CATEGORIES, ACHIEVEMENTS } from '../constants';
 
 export default function Modals({
     showSettingsModal, setShowSettingsModal, settingsMessage, handleBackup, handleRestore, showConfirmReset, setShowConfirmReset, handleResetAll,
@@ -8,9 +8,10 @@ export default function Modals({
     showDDayModal, setShowDDayModal, editingDDayIdx, setEditingDDayIdx, saveDDay, modalTitle, setModalTitle, modalDate, setModalDate,
     showAddModal, setShowAddModal, addEvent, newEventTitle, setNewEventTitle, newEventDate, setNewEventDate, newEventCategory, setNewEventCategory,
     newEventTime, setNewEventTime, newEventLocation, setNewEventLocation,
-    appTheme, setAppTheme
+    appTheme, setAppTheme,
+    achievements = [], totalHarvest = 0
 }) {
-    const [settingsTab, setSettingsTab] = useState('data'); // 'data' | 'theme'
+    const [settingsTab, setSettingsTab] = useState('achievements'); // 'achievements' | 'data' | 'theme'
 
     return (
         <>
@@ -27,17 +28,45 @@ export default function Modals({
 
                         {/* 탭 메뉴 */}
                         <div className="flex gap-2 mb-6 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
-                            <button onClick={() => setSettingsTab('data')} className={`flex-1 py-2 rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-all cursor-pointer ${settingsTab === 'data' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
-                                <Database className="w-4 h-4" /> 데이터 관리
+                            <button onClick={() => setSettingsTab('achievements')} className={`flex-1 py-2 rounded-xl text-xs font-bold flex justify-center items-center gap-1 transition-all cursor-pointer ${settingsTab === 'achievements' ? 'bg-white dark:bg-slate-700 text-amber-500 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+                                <Trophy className="w-4 h-4" /> 나의 성취
                             </button>
-                            <button onClick={() => setSettingsTab('theme')} className={`flex-1 py-2 rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-all cursor-pointer ${settingsTab === 'theme' ? 'bg-white dark:bg-slate-700 text-pink-500 dark:text-pink-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+                            <button onClick={() => setSettingsTab('theme')} className={`flex-1 py-2 rounded-xl text-xs font-bold flex justify-center items-center gap-1 transition-all cursor-pointer ${settingsTab === 'theme' ? 'bg-white dark:bg-slate-700 text-pink-500 dark:text-pink-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
                                 <Palette className="w-4 h-4" /> 테마 설정
+                            </button>
+                            <button onClick={() => setSettingsTab('data')} className={`flex-1 py-2 rounded-xl text-xs font-bold flex justify-center items-center gap-1 transition-all cursor-pointer ${settingsTab === 'data' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+                                <Database className="w-4 h-4" /> 데이터 관리
                             </button>
                         </div>
 
                         {settingsMessage && (
                             <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-sm font-bold rounded-xl text-center animate-in fade-in">
                                 {settingsMessage}
+                            </div>
+                        )}
+
+                        {settingsTab === 'achievements' && (
+                            <div className="space-y-4 animate-in slide-in-from-left-2 duration-200 hide-scrollbar overflow-y-auto max-h-[60vh] pb-4">
+                                <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl p-4 flex items-center justify-between border border-amber-100 dark:border-amber-900/30">
+                                    <div>
+                                        <h3 className="text-amber-700 dark:text-amber-500 font-extrabold text-sm mb-1">총 수확한 토마토 🍅</h3>
+                                        <p className="text-xs text-amber-600/70 dark:text-amber-400/70 font-semibold">지금까지 오두막에서 가꾼 시간들</p>
+                                    </div>
+                                    <div className="text-3xl font-black text-amber-600 dark:text-amber-400">{totalHarvest}개</div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    {ACHIEVEMENTS.map(badge => {
+                                        const isUnlocked = achievements.includes(badge.id);
+                                        return (
+                                            <div key={badge.id} className={`p-4 rounded-2xl flex flex-col items-center justify-center text-center transition-all ${isUnlocked ? 'bg-white dark:bg-slate-800 border-2 border-indigo-100 dark:border-indigo-900 shadow-sm' : 'bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 opacity-60 grayscale'}`}>
+                                                <div className="text-4xl mb-2 filter drop-shadow-sm">{badge.icon}</div>
+                                                <h4 className={`text-sm font-extrabold mb-1 ${isUnlocked ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'}`}>{badge.name}</h4>
+                                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-snug">{badge.description}</p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
 

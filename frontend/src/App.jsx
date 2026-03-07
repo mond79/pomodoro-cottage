@@ -9,8 +9,10 @@ import PomoHeatmap from './components/PomoHeatmap';
 import GardenAlbum from './components/GardenAlbum';
 import Modals from './components/Modals';
 import ReportDashboard from './components/ReportDashboard';
+import WeatherOverlay from './components/WeatherOverlay';
 
 import { useLocalStorage } from './hooks/useLocalStorage';
+import useAchievements from './hooks/useAchievements';
 import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS, MOODS, SEASONS } from './constants';
 import { formatYMD, parseYMD, generateId } from './utils/dateHelpers';
 import {
@@ -83,6 +85,10 @@ export default function App() {
   // Persistent Data States
   const [customQuotes, setCustomQuotes] = useLocalStorage('gplanner-quotes', DEFAULT_QUOTES);
   const [newQuoteInput, setNewQuoteInput] = useState('');
+
+  // 총 수확량 계산 및 성취 배지 훅 연결 🏅
+  const totalHarvest = Object.values(pomoHistory).reduce((a, b) => a + b, 0);
+  const { achievements, newUnlocked } = useAchievements(pomoSessions, totalHarvest);
 
   const [dDays, setDDays] = useLocalStorage('gplanner-ddays', [
     { id: generateId(), title: '국가직 시험', date: '2026-04-05', color: 'from-blue-500 to-blue-700' },
@@ -620,11 +626,11 @@ export default function App() {
     [streakData.streak, selectedDateTomatoes, currentMoodData, timerMode]);
 
   const rankTitle = useMemo(() => {
-    if (totalReadings >= 100) return '👑 공공의 지배자';
-    if (totalReadings >= 50) return '🔥 열정적인 불꽃';
-    if (totalReadings >= 10) return '🧙‍♂️ 수습 마법사';
-    return '🌱 새싹 항해사';
-  }, [totalReadings]);
+    if (totalHarvest >= 100) return '👑 오두막 주인';
+    if (totalHarvest >= 50) return '🏅 마을의 자랑';
+    if (totalHarvest >= 10) return '🧺 능숙한 농부';
+    return '🌱 견습 정원사';
+  }, [totalHarvest]);
 
   const appBgClasses = timerMode === 'work' ? currentMoodData.workBg : currentMoodData.restBg;
 
@@ -640,56 +646,28 @@ export default function App() {
         {/* 그라데이션 오버레이 (약하게) */}
         <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-1000 opacity-30 dark:opacity-50 ${appBgClasses} pointer-events-none`}></div>
 
-        {/* 🌅 시간대별 창풍경 오버레이 */}
+        {/* 🌅 시간대별 창풍경 오버레이 (Lighting Filter) */}
         {(() => {
           const hour = new Date().getHours();
           let timeOverlay = '';
           if (hour >= 5 && hour < 8) {
             // 새벽 — 보라빛 안개
-            timeOverlay = 'bg-gradient-to-b from-indigo-900/20 via-purple-800/10 to-transparent';
+            timeOverlay = 'bg-gradient-to-b from-indigo-500/20 via-purple-500/10 to-transparent mix-blend-overlay';
           } else if (hour >= 8 && hour < 16) {
             // 낮 — 밝은 하늘
-            timeOverlay = 'bg-gradient-to-b from-sky-400/5 via-transparent to-transparent';
+            timeOverlay = 'bg-gradient-to-b from-sky-400/10 via-amber-200/5 to-transparent mix-blend-overlay';
           } else if (hour >= 16 && hour < 19) {
-            // 노을 — 오렌지/핑크
-            timeOverlay = 'bg-gradient-to-b from-orange-500/15 via-pink-500/10 to-transparent';
+            // 노을 — 따뜻한 주황/붉은색 (Overlay blend)
+            timeOverlay = 'bg-gradient-to-b from-orange-600/30 via-pink-600/20 to-transparent mix-blend-overlay';
           } else {
-            // 밤 — 짙은 남색
-            timeOverlay = 'bg-gradient-to-b from-indigo-950/30 via-slate-900/20 to-transparent';
+            // 밤 — 짙은 남색 및 촛불 주위 광원 유도
+            timeOverlay = 'bg-gradient-to-b from-indigo-950/50 via-slate-900/40 to-black/30 mix-blend-multiply';
           }
-          return <div className={`absolute inset-0 transition-all duration-[3000ms] pointer-events-none ${timeOverlay}`} />;
+          return <div className={`absolute inset-0 transition-all duration-[3000ms] pointer-events-none z-[2] ${timeOverlay}`} />;
         })()}
 
-        {/* 🌧️ 날씨 오버레이 (비/눈 효과) */}
-        {weatherData && (() => {
-          const wId = weatherData.weather?.[0]?.id;
-          // 2xx=뇌우, 3xx=이슬비, 5xx=비, 6xx=눈
-          const isRain = wId && (wId >= 200 && wId < 600);
-          const isSnow = wId && (wId >= 600 && wId < 700);
-          if (!isRain && !isSnow) return null;
-          return (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden z-[1]">
-              <style>{`
-                @keyframes rainDrop { 0% { transform: translateY(-10vh) translateX(0); opacity: 0.7; } 100% { transform: translateY(110vh) translateX(-20px); opacity: 0; } }
-                @keyframes snowFall { 0% { transform: translateY(-5vh) rotate(0deg); opacity: 0.8; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
-                .rain-particle { position: absolute; width: 1px; height: 15px; background: linear-gradient(to bottom, transparent, rgba(174,194,224,0.5)); animation: rainDrop linear infinite; }
-                .snow-particle { position: absolute; width: 4px; height: 4px; background: white; border-radius: 50%; animation: snowFall linear infinite; }
-              `}</style>
-              {Array.from({ length: isSnow ? 30 : 40 }, (_, i) => (
-                <div
-                  key={i}
-                  className={isSnow ? 'snow-particle' : 'rain-particle'}
-                  style={{
-                    left: `${Math.random() * 100}%`,
-                    animationDuration: isSnow ? `${4 + Math.random() * 6}s` : `${0.6 + Math.random() * 0.8}s`,
-                    animationDelay: `${Math.random() * 3}s`,
-                    opacity: 0.3 + Math.random() * 0.4,
-                  }}
-                />
-              ))}
-            </div>
-          );
-        })()}
+        {/* 🌧️ 날씨 파티클 레이어 (근경/중경/원경 3D 효과) */}
+        <WeatherOverlay weatherData={weatherData} />
 
         {/* 실제 컨텐츠 */}
         <div className="relative z-10 flex-1 text-slate-700 dark:text-slate-100 p-4 md:p-8">
@@ -808,6 +786,18 @@ export default function App() {
             />
           )}
 
+          {/* 🌟 성취 배지 달성 토스트 알림 */}
+          {newUnlocked && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-indigo-900/90 text-white px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 animate-[slideUp_400ms_cubic-bezier(0.16,1,0.3,1)]">
+              <div className="text-4xl animate-bounce">{newUnlocked.icon}</div>
+              <div className="flex flex-col">
+                <span className="text-xs text-indigo-200 font-bold tracking-wider">새로운 성취 달성!</span>
+                <span className="text-lg font-extrabold">{newUnlocked.name}</span>
+                <span className="text-sm text-indigo-100">{newUnlocked.description}</span>
+              </div>
+            </div>
+          )}
+
           <Modals
             showSettingsModal={showSettingsModal} setShowSettingsModal={setShowSettingsModal} settingsMessage={settingsMessage} handleBackup={handleBackup} handleRestore={handleRestore} showConfirmReset={showConfirmReset} setShowConfirmReset={setShowConfirmReset} handleResetAll={handleResetAll}
             showQuoteModal={showQuoteModal} setShowQuoteModal={setShowQuoteModal} addQuote={addQuote} newQuoteInput={newQuoteInput} setNewQuoteInput={setNewQuoteInput} customQuotes={customQuotes} deleteQuote={deleteQuote}
@@ -815,6 +805,7 @@ export default function App() {
             showAddModal={showAddModal} setShowAddModal={setShowAddModal} addEvent={addEvent} newEventTitle={newEventTitle} setNewEventTitle={setNewEventTitle} newEventDate={newEventDate} setNewEventDate={setNewEventDate} newEventCategory={newEventCategory} setNewEventCategory={setNewEventCategory}
             newEventTime={newEventTime} setNewEventTime={setNewEventTime} newEventLocation={newEventLocation} setNewEventLocation={setNewEventLocation}
             appTheme={appTheme} setAppTheme={setAppTheme}
+            achievements={achievements} totalHarvest={totalHarvest}
           />
         </div>
       </div>
