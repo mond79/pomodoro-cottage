@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Brain, Tag } from 'lucide-react';
+import { Timer, Wind, Play, Pause, RotateCcw as ResetIcon, Brain, Tag, MonitorPlay, Square, Music2, ListMusic, Sliders } from 'lucide-react';
 import { GARDEN_STAGES } from '../constants';
 import SoundMixer from './SoundMixer';
 import MiniGarden from './MiniGarden';
@@ -16,7 +16,7 @@ export default function PomodoroTimer({
     playTrack, removeTrack,
     showParcel, setShowParcel,
     weatherData,
-    isZenMode = false,
+    isZenMode = false, setIsZenMode,
     currentPomoTag, setCurrentPomoTag
 }) {
     // === 🐱 식구 말풍선 ===
@@ -102,7 +102,7 @@ export default function PomodoroTimer({
                 </p>
 
                 {/* 🧠 스마트 타이머 추천 */}
-                {timerMode === 'work' && smartRecommendation && !isPomoActive && (
+                {!isZenMode && timerMode === 'work' && smartRecommendation && !isPomoActive && (
                     <button
                         onClick={() => changePomoDuration(smartRecommendation.recommended)}
                         className={`w-full mb-4 p-3 rounded-xl border text-left transition-all cursor-pointer group hover:scale-[1.02] active:scale-95
@@ -137,24 +137,37 @@ export default function PomodoroTimer({
                         {formatPomoTime(pomoTime)}
                     </span>
                     <div className="flex gap-2">
+                        {/* 🎬 시네마틱 모드 (Zen 모드) 변경 터치/클릭 버튼 */}
+                        <button
+                            onClick={() => setIsZenMode(!isZenMode)}
+                            className={`p-3 rounded-2xl transition-all cursor-pointer border shadow-sm
+                                ${isZenMode 
+                                    ? 'bg-indigo-500/80 text-white border-indigo-400/50 hover:bg-indigo-600' 
+                                    : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10 border-white/10'
+                                }`}
+                            title="시네마틱 집중 모드 (단축키: Z)"
+                        >
+                            <MonitorPlay className="w-5 h-5 mx-0.5" />
+                        </button>
                         <button
                             onClick={() => setIsPomoActive(!isPomoActive)}
-                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer
-                                ${timerMode === 'work'
-                                    ? (isPomoActive ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-slate-900')
-                                    : (isPomoActive ? 'bg-cyan-800 hover:bg-cyan-900 text-white' : 'bg-white text-teal-600 hover:bg-teal-50')
+                            className={`px-6 py-3 rounded-2xl font-black text-sm transition-all sm:text-base cursor-pointer shadow-lg
+                                ${isPomoActive
+                                    ? 'bg-red-500/20 text-red-50 hover:bg-red-500/30 border border-red-500/50'
+                                    : (timerMode === 'work'
+                                        ? 'bg-white text-slate-900 hover:bg-slate-100 hover:shadow-xl hover:-translate-y-0.5'
+                                        : 'bg-teal-400 text-teal-950 hover:bg-teal-300 hover:shadow-xl hover:-translate-y-0.5')
                                 }
                             `}
                         >
-                            {isPomoActive ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                            {isPomoActive ? '일시정지' : (timerMode === 'work' ? '집중 시작' : '휴식 시작')}
                         </button>
                         <button
-                            onClick={() => { setIsPomoActive(false); setTimerMode('work'); setPomoTime(pomoDuration * 60); }}
-                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors cursor-pointer
-                                ${timerMode === 'work' ? 'bg-slate-700 hover:bg-slate-600' : 'bg-teal-600 hover:bg-teal-700'}
-                            `}
+                            onClick={() => { setPomoTime(pomoDuration * 60); setIsPomoActive(false); }}
+                            className="p-3 bg-white/10 text-white rounded-2xl hover:bg-white/20 transition-all cursor-pointer border border-white/5 disabled:opacity-50 disabled:cursor-not-allowed hidden sm:block"
+                            disabled={pomoTime === pomoDuration * 60 && !isPomoActive}
                         >
-                            <ResetIcon className={`w-5 h-5 ${timerMode === 'work' ? 'text-slate-300' : 'text-teal-100'}`} />
+                            <ResetIcon className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
@@ -314,6 +327,30 @@ export default function PomodoroTimer({
                     onSpeechBubble={setSpeechBubble}
                     isZenMode={isZenMode}
                 />
+
+                {/* 🎵 미니 플레이어 바 (하단 고정) */}
+                {!isZenMode && <div className="mt-6 flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); toggleAudio(); }}
+                            className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all cursor-pointer active:scale-95 flex-shrink-0"
+                        >
+                            {isPlayingAudio ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                        </button>
+                        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setShowMusicModal(true)}>
+                            <div className="text-xs font-bold text-white truncate">
+                                {playlist.length > 0 && playlist[currentTrackIdx] ? playlist[currentTrackIdx].title : '선택된 음악 없음'}
+                            </div>
+                            <div className="text-[10px] text-white/50 truncate flex items-center gap-1">
+                                <Music2 className="w-3 h-3" /> {playlist.length} 곡 대기 중
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                        <button onClick={() => setShowMusicModal(true)} className="p-2 text-white/50 hover:text-white transition-colors cursor-pointer"><ListMusic className="w-4 h-4" /></button>
+                        <button onClick={() => setShowSoundMixer(true)} className="p-2 text-white/50 hover:text-white transition-colors cursor-pointer"><Sliders className="w-4 h-4" /></button>
+                    </div>
+                </div>}
             </div>
 
             {/* 🎁 오두막 소포 팝업 모달 */}

@@ -12,7 +12,7 @@ export default function TodoSection({
     todos, addTodo, toggleTodo, deleteTodo, reorderTodos, newTodo, setNewTodo, celebratingId,
     searchQuery, displayedEvents, deleteEvent,
     setNewEventDate, setShowAddModal,
-    pomoSessions, currentMood, weatherData
+    pomoSessions, currentMood, weatherData, setCurrentPomoTag
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [activeId, setActiveId] = useState(null);
@@ -171,6 +171,7 @@ export default function TodoSection({
                                     deleteTodo={deleteTodo}
                                     celebratingId={celebratingId}
                                     isDragging={activeId === todo.id}
+                                    setCurrentPomoTag={setCurrentPomoTag}
                                 />
                             ))}
                             {todos.length === 0 && <p className="text-center text-sm text-slate-400 py-4">모든 할 일을 마쳤거나, 아직 없네요! ☕</p>}
@@ -230,7 +231,7 @@ export default function TodoSection({
 }
 
 // 🔀 드래그 가능한 할 일 항목 컴포넌트
-function SortableTodoItem({ todo, toggleTodo, deleteTodo, celebratingId, isDragging }) {
+function SortableTodoItem({ todo, toggleTodo, deleteTodo, celebratingId, isDragging, setCurrentPomoTag }) {
     const {
         attributes,
         listeners,
@@ -303,6 +304,20 @@ function SortableTodoItem({ todo, toggleTodo, deleteTodo, celebratingId, isDragg
                     </div>
                 )}
             </div>
+
+            {/* ▶️ 작동 버튼 (타이머 연동) - 완료되지 않은 항목에만 표시 */}
+            {!todo.completed && setCurrentPomoTag && (
+                <button
+                    onClick={() => {
+                        setCurrentPomoTag(todo.text);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="cursor-pointer bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 p-1.5 rounded-lg flex items-center justify-center transition-colors shadow-sm ml-1 flex-shrink-0"
+                    title="이 할 일로 집중 시작하기"
+                >
+                    ▶️
+                </button>
+            )}
 
             <button onClick={() => deleteTodo(todo.id)} className="cursor-pointer text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-10 ml-2 flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
         </div>

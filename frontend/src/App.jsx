@@ -755,7 +755,7 @@ export default function App() {
                 playTrack={playTrack} removeTrack={removeTrack} setPlaylist={setPlaylist} setIsPlayingAudio={setIsPlayingAudio} setCurrentTrackIdx={setCurrentTrackIdx}
                 showParcel={showParcel} setShowParcel={setShowParcel}
                 weatherData={weatherData}
-                isZenMode={isZenMode} // 타이머 내부 UI 변경용 상태 전달
+                isZenMode={isZenMode} setIsZenMode={setIsZenMode}
                 currentPomoTag={currentPomoTag} setCurrentPomoTag={setCurrentPomoTag}
               />
 
@@ -766,6 +766,7 @@ export default function App() {
                   searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
                   setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
                   pomoSessions={pomoSessions} currentMood={currentMood} weatherData={weatherData}
+                  setCurrentPomoTag={setCurrentPomoTag}
                 />
               )}
             </div>
