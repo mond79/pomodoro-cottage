@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import DDaySection from './components/DDaySection';
@@ -7,12 +7,15 @@ import PomodoroTimer from './components/PomodoroTimer';
 import TodoSection from './components/TodoSection';
 import PomoHeatmap from './components/PomoHeatmap';
 import GardenAlbum from './components/GardenAlbum';
-import Modals from './components/Modals';
-import ReportDashboard from './components/ReportDashboard';
 import WeatherOverlay from './components/WeatherOverlay';
+
+// 🚀 성능 최적화: 당장 화면에 보이지 않는 거대한 모달/리포트 컴포넌트는 지연 로딩(Lazy Loading) 적용
+const Modals = lazy(() => import('./components/Modals'));
+const ReportDashboard = lazy(() => import('./components/ReportDashboard'));
 
 import { useLocalStorage } from './hooks/useLocalStorage';
 import useAchievements from './hooks/useAchievements';
+import useAppInit from './hooks/useAppInit';
 import { CATEGORIES, WEEKDAYS, DEFAULT_QUOTES, SUBJECT_COLORS, MOODS, SEASONS } from './constants';
 import { formatYMD, parseYMD, generateId } from './utils/dateHelpers';
 import {
@@ -88,7 +91,7 @@ export default function App() {
 
   // 총 수확량 계산 및 성취 배지 훅 연결 🏅
   const totalHarvest = Object.values(pomoHistory).reduce((a, b) => a + b, 0);
-  const { achievements, newUnlocked } = useAchievements(pomoSessions, totalHarvest);
+  const { achievements, newUnlocked, closeAchievement } = useAchievements(pomoSessions, totalHarvest);
 
   const [dDays, setDDays] = useLocalStorage('gplanner-ddays', [
     { id: generateId(), title: '국가직 시험', date: '2026-04-05', color: 'from-blue-500 to-blue-700' },
@@ -121,62 +124,14 @@ export default function App() {
 
   // --- Effects ---
 
-  // 앱 시작 시: 구글 로그인 상태 확인, 로컬 데이터 로드 및 💡 날짜 변경(자정 넘김) 초기화
-  useEffect(() => {
-    // 1. 날짜 변경 감지 로직 (자정이 지났으면 할 일 비우기)
-    const todayStr = formatYMD(new Date());
-    if (lastActiveDate !== todayStr) {
-      console.log('🌅 새로운 날이 밝았습니다! 할 일 목록을 정리합니다.');
-      // 어제 완료된(또는 모든) 할 일을 지우고 새로운 시작을 준비 (옵션: 완료되지 않은 것만 남길 수도 있음)
-      // 여기서는 사용자의 요청에 따라 모든 할 일을 비우거나 초기 상태로 되돌립니다.
-      setTodos([]);
-      setLastActiveDate(todayStr); // 오늘 날짜로 갱신
-    }
-
-    // 2. 백엔드 상태 확인 및 초기 데이터 로드
-    fetchStatus().then(data => {
-      setIsGoogleLoggedIn(data.is_logged_in);
-
-      // 구글 로그인 상태라면 할 일 목록 가져오기
-      if (data.is_logged_in) {
-        fetchTasks().then(googleTasks => {
-          if (googleTasks && googleTasks.length > 0) {
-            setTodos(prev => {
-              // 중복 방지 (텍스트 기준)
-              const existingTexts = new Set(prev.map(t => t.text));
-              const newTasksFromGoogle = googleTasks.filter(gt => !existingTexts.has(gt.text));
-              return [...prev, ...newTasksFromGoogle];
-            });
-          }
-        });
-      }
-    });
-
-    // IndexedDB에서 저장된 플레이리스트 로드
-    loadStoredPlaylist().then(stored => {
-      if (stored && stored.length > 0) {
-        const withUrls = stored.map(track => ({
-          ...track,
-          url: URL.createObjectURL(track.blob)
-        }));
-        setPlaylist(withUrls);
-        setCurrentTrackIdx(0);
-      }
-    });
-
-    // 🔔 브라우저 알림 권한 획득 & 스마트 알림 (하루 1회 제한이 notifications 내부에서 처리됨)
-    if ('Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            sendSmartDailyNotification(todos, dDays);
-          }
-        });
-      } else if (Notification.permission === 'granted') {
-        sendSmartDailyNotification(todos, dDays);
-      }
-    }
-  }, [lastActiveDate, setLastActiveDate, setTodos, dDays, todos]);
+  // 1️⃣ 앱 초기 로딩 및 데이터 동기화 관리 (분리된 커스텀 훅)
+  useAppInit({
+    lastActiveDate, setLastActiveDate,
+    setTodos, todos,
+    setIsGoogleLoggedIn,
+    setPlaylist, setCurrentTrackIdx,
+    dDays
+  });
 
   // ⌨️ 전역 키보드 단축키 (Zen 모드, 타이머 조작)
   useEffect(() => {
@@ -780,33 +735,46 @@ export default function App() {
 
           {/* 📊 리포트 대시보드 모달 */}
           {showReportDashboard && (
-            <ReportDashboard
-              pomoSessions={pomoSessions}
-              onClose={() => setShowReportDashboard(false)}
-            />
+            <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm"><div className="animate-spin text-4xl">🌀</div></div>}>
+              <ReportDashboard
+                pomoSessions={pomoSessions}
+                onClose={() => setShowReportDashboard(false)}
+              />
+            </Suspense>
           )}
 
           {/* 🌟 성취 배지 달성 토스트 알림 */}
           {newUnlocked && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-indigo-900/90 text-white px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 animate-[slideUp_400ms_cubic-bezier(0.16,1,0.3,1)]">
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-indigo-900/90 text-white px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 animate-[slideUp_400ms_cubic-bezier(0.16,1,0.3,1)] pr-12">
               <div className="text-4xl animate-bounce">{newUnlocked.icon}</div>
               <div className="flex flex-col">
                 <span className="text-xs text-indigo-200 font-bold tracking-wider">새로운 성취 달성!</span>
                 <span className="text-lg font-extrabold">{newUnlocked.name}</span>
                 <span className="text-sm text-indigo-100">{newUnlocked.description}</span>
               </div>
+              <button 
+                onClick={closeAchievement} 
+                className="absolute top-3 right-3 text-indigo-300 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
+                aria-label="알림 닫기"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
           )}
 
-          <Modals
-            showSettingsModal={showSettingsModal} setShowSettingsModal={setShowSettingsModal} settingsMessage={settingsMessage} handleBackup={handleBackup} handleRestore={handleRestore} showConfirmReset={showConfirmReset} setShowConfirmReset={setShowConfirmReset} handleResetAll={handleResetAll}
-            showQuoteModal={showQuoteModal} setShowQuoteModal={setShowQuoteModal} addQuote={addQuote} newQuoteInput={newQuoteInput} setNewQuoteInput={setNewQuoteInput} customQuotes={customQuotes} deleteQuote={deleteQuote}
-            showDDayModal={showDDayModal} setShowDDayModal={setShowDDayModal} editingDDayIdx={editingDDayIdx} setEditingDDayIdx={setEditingDDayIdx} saveDDay={saveDDay} modalTitle={modalTitle} setModalTitle={setModalTitle} modalDate={modalDate} setModalDate={setModalDate}
-            showAddModal={showAddModal} setShowAddModal={setShowAddModal} addEvent={addEvent} newEventTitle={newEventTitle} setNewEventTitle={setNewEventTitle} newEventDate={newEventDate} setNewEventDate={setNewEventDate} newEventCategory={newEventCategory} setNewEventCategory={setNewEventCategory}
-            newEventTime={newEventTime} setNewEventTime={setNewEventTime} newEventLocation={newEventLocation} setNewEventLocation={setNewEventLocation}
-            appTheme={appTheme} setAppTheme={setAppTheme}
-            achievements={achievements} totalHarvest={totalHarvest}
-          />
+          {/* ⚙️ 설정 등의 통합 모달 컨테이너 */}
+          <Suspense fallback={null}>
+            <Modals
+              showSettingsModal={showSettingsModal} setShowSettingsModal={setShowSettingsModal} settingsMessage={settingsMessage} handleBackup={handleBackup} handleRestore={handleRestore} showConfirmReset={showConfirmReset} setShowConfirmReset={setShowConfirmReset} handleResetAll={handleResetAll}
+              showQuoteModal={showQuoteModal} setShowQuoteModal={setShowQuoteModal} addQuote={addQuote} newQuoteInput={newQuoteInput} setNewQuoteInput={setNewQuoteInput} customQuotes={customQuotes} deleteQuote={deleteQuote}
+              showDDayModal={showDDayModal} setShowDDayModal={setShowDDayModal} editingDDayIdx={editingDDayIdx} setEditingDDayIdx={setEditingDDayIdx} saveDDay={saveDDay} modalTitle={modalTitle} setModalTitle={setModalTitle} modalDate={modalDate} setModalDate={setModalDate}
+              showAddModal={showAddModal} setShowAddModal={setShowAddModal} addEvent={addEvent} newEventTitle={newEventTitle} setNewEventTitle={setNewEventTitle} newEventDate={newEventDate} setNewEventDate={setNewEventDate} newEventCategory={newEventCategory} setNewEventCategory={setNewEventCategory}
+              newEventTime={newEventTime} setNewEventTime={setNewEventTime} newEventLocation={newEventLocation} setNewEventLocation={setNewEventLocation}
+              appTheme={appTheme} setAppTheme={setAppTheme}
+              achievements={achievements} totalHarvest={totalHarvest}
+              setWeatherData={setWeatherData}
+            />
+          </Suspense>
         </div>
       </div>
     </div>

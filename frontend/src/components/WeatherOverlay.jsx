@@ -1,97 +1,105 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 export default function WeatherOverlay({ weatherData }) {
-    if (!weatherData) return null;
+    const canvasRef = useRef(null);
 
-    const wId = weatherData.weather?.[0]?.id;
-    // 2xx=뇌우, 3xx=이슬비, 5xx=비, 6xx=눈
-    const isRain = wId && (wId >= 200 && wId < 600);
-    const isSnow = wId && (wId >= 600 && wId < 700);
+    useEffect(() => {
+        if (!weatherData) return;
 
-    if (!isRain && !isSnow) return null;
+        const wId = weatherData.weather?.[0]?.id;
+        const isRain = wId && (wId >= 200 && wId < 600);
+        const isSnow = wId && (wId >= 600 && wId < 700);
 
-    // 파티클 개수 증가 (풍성하게)
-    const particleCount = isSnow ? 60 : 100;
+        if (!isRain && !isSnow) return;
 
-    const particles = useMemo(() => {
-        return Array.from({ length: particleCount }, (_, i) => {
-            // 깊이감(Depth)을 주기 위해 z-index와 렌더링 스케일(크기/속도)을 3단계로 분류
-            const depth = Math.random(); 
-            let scale, speedMultiplier, opacity;
-            
-            if (depth > 0.8) {
-                // 근경 (가깝고 크고 빠름)
-                scale = 1.2; speedMultiplier = 0.8; opacity = 0.7 + Math.random() * 0.3;
-            } else if (depth > 0.4) {
-                // 중경 (보통)
-                scale = 0.8; speedMultiplier = 1.2; opacity = 0.4 + Math.random() * 0.3;
-            } else {
-                // 원경 (작고 느리고 흐림)
-                scale = 0.5; speedMultiplier = 1.8; opacity = 0.2 + Math.random() * 0.2;
-            }
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
 
+        // 화면 크기에 맞게 캔버스 해상도 조절 (크기 변경 시 대응)
+        const resizeCanvas = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 파티클 생성 로직
+        const particleCount = isSnow ? 60 : 150;
+        const particles = Array.from({ length: particleCount }, () => {
+            const depth = Math.random();
             return {
-                id: i,
-                left: `${Math.random() * 100}%`,
-                scale,
-                opacity,
-                // 눈은 4~10초, 비는 0.4~1.2초
-                duration: isSnow ? (4 + Math.random() * 6) * speedMultiplier : (0.4 + Math.random() * 0.8) * speedMultiplier,
-                delay: Math.random() * 3
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height, // 화면 전역에 고르게 시작
+                depth,
+                opacity: depth > 0.8 ? 0.7 + Math.random() * 0.3 : (depth > 0.4 ? 0.4 + Math.random() * 0.3 : 0.2 + Math.random() * 0.2),
+                scale: depth > 0.8 ? 1.2 : (depth > 0.4 ? 0.8 : 0.5),
+                // 비는 빠르고 직선적, 눈은 느리고 요동침
+                speedY: isSnow ? (1 + Math.random() * 1.5) * (depth > 0.5 ? 1.5 : 0.8) : (10 + Math.random() * 15) * (depth > 0.5 ? 1.2 : 0.7),
+                speedX: isSnow ? (Math.random() - 0.5) * 1.5 : (depth > 0.5 ? -2 : -1),
             };
         });
-    }, [isSnow, particleCount]);
+
+        // 애니메이션 루프
+        const render = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // 이전 프레임 지우기
+
+            particles.forEach(p => {
+                // 파티클 위치 업데이트
+                p.y += p.speedY;
+                p.x += p.speedX;
+
+                // 화면 밖으로 나가면 위로 재배치
+                if (p.y > canvas.height) {
+                    p.y = -20;
+                    p.x = Math.random() * canvas.width;
+                }
+                if (p.x < -20) p.x = canvas.width + 20;
+                if (p.x > canvas.width + 20) p.x = -20;
+
+                // 파티클 그리기
+                ctx.beginPath();
+                if (isSnow) {
+                    ctx.arc(p.x, p.y, 2 * p.scale, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${p.opacity})`;
+                    ctx.fill();
+                } else {
+                    // 비는 그라데이션 선으로 구현
+                    const dropHeight = 25 * p.scale;
+                    const grad = ctx.createLinearGradient(p.x, p.y, p.x - (p.speedX * 0.5), p.y - dropHeight);
+                    grad.addColorStop(0, `rgba(200, 220, 255, ${p.opacity})`);
+                    grad.addColorStop(1, 'rgba(200, 220, 255, 0)');
+                    ctx.strokeStyle = grad;
+                    ctx.lineWidth = 1.5 * p.scale;
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(p.x - (p.speedX * 0.5), p.y - dropHeight);
+                    ctx.stroke();
+                }
+            });
+
+            animationFrameId = requestAnimationFrame(render);
+        };
+
+        render();
+
+        return () => {
+            window.removeEventListener('resize', resizeCanvas);
+            cancelAnimationFrame(animationFrameId);
+            // 날씨가 바뀌거나 컴포넌트가 해제될 때 캔버스를 깨끗이 비워 잔상을 제거합니다.
+            if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        };
+    }, [weatherData]);
+
+    const wId = weatherData?.weather?.[0]?.id;
+    const isThunder = wId >= 200 && wId < 300;
 
     return (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-[5]">
-            <style>{`
-                @keyframes rainDrop { 
-                    0% { transform: translateY(-10vh) translateX(0) rotate(15deg); } 
-                    100% { transform: translateY(110vh) translateX(-15px) rotate(15deg); } 
-                }
-                @keyframes snowFall { 
-                    0% { transform: translateY(-5vh) translateX(0) rotate(0deg); } 
-                    50% { transform: translateY(50vh) translateX(20px) rotate(180deg); } 
-                    100% { transform: translateY(110vh) translateX(-20px) rotate(360deg); } 
-                }
-                .particle-base {
-                    position: absolute;
-                    top: -20px;
-                    will-change: transform;
-                }
-                .rain-particle { 
-                    width: 2px; 
-                    height: 25px; 
-                    background: linear-gradient(to bottom, transparent, rgba(200, 220, 255, 0.8)); 
-                    filter: drop-shadow(0 0 2px rgba(255,255,255,0.4));
-                    animation: rainDrop linear infinite; 
-                }
-                .snow-particle { 
-                    width: 6px; 
-                    height: 6px; 
-                    background: radial-gradient(circle, rgba(255,255,255,1) 30%, rgba(255,255,255,0.2) 100%);
-                    border-radius: 50%; 
-                    filter: drop-shadow(0 0 4px rgba(255,255,255,0.8));
-                    animation: snowFall linear infinite; 
-                }
-            `}</style>
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
             
-            {particles.map(p => (
-                <div
-                    key={p.id}
-                    className={`particle-base ${isSnow ? 'snow-particle' : 'rain-particle'}`}
-                    style={{
-                        left: p.left,
-                        transform: `scale(${p.scale})`,
-                        animationDuration: `${p.duration}s`,
-                        animationDelay: `${p.delay}s`,
-                        opacity: p.opacity,
-                    }}
-                />
-            ))}
-            
-            {/* 번개 효과 (뇌우 시) */}
-            {wId >= 200 && wId < 300 && (
+            {/* 번개 효과 (뇌우 시에만 렌더링) */}
+            {isThunder && (
                 <div className="absolute inset-0 bg-white opacity-0 animate-[flash_8s_infinite] pointer-events-none mix-blend-overlay">
                     <style>{`
                         @keyframes flash {

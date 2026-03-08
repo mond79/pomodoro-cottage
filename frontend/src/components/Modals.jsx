@@ -9,7 +9,8 @@ export default function Modals({
     showAddModal, setShowAddModal, addEvent, newEventTitle, setNewEventTitle, newEventDate, setNewEventDate, newEventCategory, setNewEventCategory,
     newEventTime, setNewEventTime, newEventLocation, setNewEventLocation,
     appTheme, setAppTheme,
-    achievements = [], totalHarvest = 0
+    achievements = [], totalHarvest = 0,
+    setWeatherData
 }) {
     const [settingsTab, setSettingsTab] = useState('achievements'); // 'achievements' | 'data' | 'theme'
 
@@ -107,7 +108,7 @@ export default function Modals({
                         )}
 
                         {settingsTab === 'theme' && (
-                            <div className="space-y-6 animate-in slide-in-from-right-2 duration-200">
+                            <div className="space-y-6 animate-in slide-in-from-right-2 duration-200 hide-scrollbar overflow-y-auto max-h-[60vh] pb-4">
                                 {/* 폰트 설정 */}
                                 <div>
                                     <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 mb-3">글꼴 스타일</h3>
@@ -166,6 +167,30 @@ export default function Modals({
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+
+                                {/* 🌡️ 날씨 분위기 설정 */}
+                                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                                    <h3 className="text-sm font-bold text-blue-600 dark:text-blue-400 mb-3 flex items-center gap-2">
+                                        🌦️ 날씨 분위기 직접 설정
+                                    </h3>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {[
+                                            { name: '맑음', id: 800 },
+                                            { name: '비', id: 500 },
+                                            { name: '눈', id: 600 },
+                                            { name: '낙뢰', id: 200 }
+                                        ].map(w => (
+                                            <button
+                                                key={w.id}
+                                                onClick={() => setWeatherData({ weather: [{ id: w.id }], main: { temp: 20 } })}
+                                                className="py-2 rounded-xl text-[10px] font-black bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-600 dark:text-slate-400 transition-all cursor-pointer border border-transparent hover:border-blue-300"
+                                            >
+                                                {w.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="mt-2 text-[9px] text-slate-400 font-medium">※ 현재 날씨와 상관없이 오두막의 분위기를 내 마음대로 바꿀 수 있습니다.</p>
                                 </div>
                             </div>
                         )}

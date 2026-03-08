@@ -56,15 +56,20 @@ export default function useAchievements(pomoSessions, totalHarvest) {
         if (unlockedThisTime) {
             setAchievements(newAchievements);
             setNewUnlocked(unlockedThisTime);
-            
-            // 4초 후 알림 제거
-            const timer = setTimeout(() => {
-                setNewUnlocked(null);
-            }, 4000);
-            return () => clearTimeout(timer);
         }
 
     }, [pomoSessions, totalHarvest, achievements, setAchievements]);
 
-    return { achievements, newUnlocked };
+    // Toast 팝업 자동 사라짐 타이머 분리
+    useEffect(() => {
+        if (newUnlocked) {
+            const timer = setTimeout(() => setNewUnlocked(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [newUnlocked]);
+
+    // 사용자가 강제로 닫을 수 있는 함수 제공
+    const closeAchievement = () => setNewUnlocked(null);
+
+    return { achievements, newUnlocked, closeAchievement };
 }
