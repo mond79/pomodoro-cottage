@@ -91,39 +91,11 @@ export default function TodoSection({
 
     return (
         <>
-            {/* Daily Retrospective (오늘의 항해 일지) */}
-            <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800">
-                <h3 className="text-xl font-black mb-4 flex items-center gap-3 text-indigo-600 dark:text-indigo-400">
-                    <PenTool className="w-6 h-6" /> 오늘의 항해 일지
-                </h3>
-                <p className="text-xs text-slate-400 mb-4 font-bold">{selectedDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}의 기록</p>
-                <textarea
-                    placeholder="오늘 하루는 어땠나요? 사소한 칭찬도, 아쉬운 점도 모두 별빛이 될 거예요."
-                    className="w-full h-32 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none resize-none leading-relaxed transition-all placeholder-slate-400 custom-scrollbar"
-                    value={diaries[formatYMD(selectedDate)] || ''}
-                    onChange={(e) => saveDiary(e.target.value)}
-                />
-                <button
-                    onClick={handleAISummary}
-                    disabled={isGenerating}
-                    className={`mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer
-                        ${isGenerating
-                            ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-400 cursor-wait'
-                            : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30 hover:scale-[1.02] active:scale-95'
-                        }
-                    `}
-                >
-                    {isGenerating ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> AI가 오두막의 기억을 쓰고 있어요...</>
-                    ) : (
-                        <><Sparkles className="w-4 h-4" /> 📝 AI 하루 요약 쓰기</>
-                    )}
-                </button>
-            </div>
+            {/* 일지 영역이 하단으로 이동되었습니다. */}
 
             {/* Daily To-Do 🎉 드래그 앤 드롭 정렬 + 폭죽 애니메이션 */}
-            <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 relative">
-                <h3 className="text-xl font-black mb-6 flex items-center gap-3"><CheckSquare className="w-6 h-6 text-green-500" /> 오늘 나의 목표</h3>
+            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 relative">
+                <h3 className="text-lg font-black mb-4 flex items-center gap-2"><CheckSquare className="w-5 h-5 text-green-500" /> 오늘 나의 목표</h3>
                 <form onSubmit={handleAddTodoSubmit} className="mb-6 flex flex-col gap-2">
                     <div className="flex gap-2">
                         <input type="text" placeholder="오늘 할 일..." className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-green-500 outline-none transition-all" value={newTodo} onChange={(e) => setNewTodo(e.target.value)} />
@@ -189,19 +161,19 @@ export default function TodoSection({
             </div>
 
             {/* Schedule Info */}
-            <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between items-center mb-8">
-                    <h3 className="font-black text-lg flex items-center gap-2 text-blue-600 dark:text-blue-400">
+            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-black text-base flex items-center gap-2 text-blue-600 dark:text-blue-400">
                         <CalendarDays className="w-5 h-5" />
                         {searchQuery.trim() ? '검색 결과' : selectedDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
                     </h3>
                     <button onClick={() => { setNewEventDate(formatYMD(selectedDate)); setShowAddModal(true); }} className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl hover:scale-110 transition-transform cursor-pointer"><Plus className="w-5 h-5" /></button>
                 </div>
 
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {displayedEvents.length > 0 ? (
                         displayedEvents.map(event => (
-                            <div key={event.id} className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 relative group">
+                            <div key={event.id} className="p-4 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 relative group">
                                 <div className="flex justify-between items-start mb-2">
                                     <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase inline-block ${CATEGORIES.find(c => c.id === event.category)?.color || CATEGORIES[4].color}`}>
                                         {CATEGORIES.find(c => c.id === event.category)?.name || '기타'}
@@ -225,6 +197,36 @@ export default function TodoSection({
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Daily Retrospective (오늘의 항해 일지) */}
+            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800">
+                <h3 className="text-lg font-black mb-3 flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                    <PenTool className="w-5 h-5" /> 오늘의 항해 일지
+                </h3>
+                <p className="text-xs text-slate-400 mb-4 font-bold">{selectedDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}의 기록</p>
+                <textarea
+                    placeholder="오늘 하루는 어땠나요? 사소한 칭찬도, 아쉬운 점도 모두 별빛이 될 거예요."
+                    className="w-full h-24 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none resize-none leading-relaxed transition-all placeholder-slate-400 custom-scrollbar"
+                    value={diaries[formatYMD(selectedDate)] || ''}
+                    onChange={(e) => saveDiary(e.target.value)}
+                />
+                <button
+                    onClick={handleAISummary}
+                    disabled={isGenerating}
+                    className={`mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer
+                        ${isGenerating
+                            ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-400 cursor-wait'
+                            : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30 hover:scale-[1.02] active:scale-95'
+                        }
+                    `}
+                >
+                    {isGenerating ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> AI가 오두막의 기억을 쓰고 있어요...</>
+                    ) : (
+                        <><Sparkles className="w-4 h-4" /> 📝 AI 하루 요약 쓰기</>
+                    )}
+                </button>
             </div>
         </>
     );

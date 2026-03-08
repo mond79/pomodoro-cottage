@@ -21,7 +21,7 @@ import { formatYMD, parseYMD, generateId } from './utils/dateHelpers';
 import {
   fetchStatus, redirectToGoogleLogin, redirectToLogout,
   fetchTasks, addGoogleTask, addCalendarEvent,
-  fetchWeather, addCustomCalendarEvent
+  fetchWeather, addCustomCalendarEvent, deleteCalendarEvent
 } from './utils/api';
 import { loadStoredPlaylist, saveTrackToDB, deleteTrackFromDB } from './utils/playlistStore';
 import { playNotificationSound } from './utils/audioEffects';
@@ -134,7 +134,8 @@ export default function App() {
     setTodos, todos,
     setIsGoogleLoggedIn,
     setPlaylist, setCurrentTrackIdx,
-    dDays
+    dDays,
+    events, setEvents
   });
 
   // 📸 화면 캡처 및 공유 이벤트 (Custom Event 처리)
@@ -520,9 +521,10 @@ export default function App() {
     e.preventDefault();
     if (!newEventTitle.trim() || !newEventDate) return;
 
+    const newEventId = generateId();
     // 로컬 상태 추가
     const newEventObj = {
-      id: generateId(),
+      id: newEventId,
       title: newEventTitle.trim(),
       date: newEventDate,
       time: newEventTime,
@@ -537,12 +539,17 @@ export default function App() {
         const startDateTime = new Date(`${newEventDate}T${newEventTime || '00:00'}:00`);
         const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // 일정 1시간 부여
 
-        await addCustomCalendarEvent({
+        const res = await addCustomCalendarEvent({
           title: newEventObj.title,
           location: newEventObj.location === '미정' ? '' : newEventObj.location,
           start_time: startDateTime.toISOString(),
           end_time: endDateTime.toISOString()
         });
+        
+        if (res && res.success && res.eventId) {
+          // 로컬 데이터에 새로 발급된 구글 eventId와 소유 마커(source)를 추가로 입혀줍니다.
+          setEvents(prev => prev.map(ev => ev.id === newEventId ? { ...ev, eventId: res.eventId, source: 'google' } : ev));
+        }
       } catch (err) {
         console.error("구글 캘린더 동기화 실패:", err);
       }
@@ -550,7 +557,20 @@ export default function App() {
 
     setNewEventTitle(''); setNewEventLocation(''); setNewEventCategory('other'); setNewEventTime('14:00'); setShowAddModal(false);
   };
-  const deleteEvent = (id) => setEvents(prev => prev.filter(e => e.id !== id));
+  const deleteEvent = async (id) => {
+    const eventToDelete = events.find(e => e.id === id);
+    setEvents(prev => prev.filter(e => e.id !== id));
+    
+    // 구글 캘린더 연동 이벤트인 경우 API 호출로 연동 삭제
+    if (isGoogleLoggedIn && eventToDelete && eventToDelete.eventId && eventToDelete.source === 'google') {
+      try {
+        await deleteCalendarEvent(eventToDelete.eventId);
+        console.log('✅ 구글 캘린더 연동 일정 삭제 완료');
+      } catch (err) {
+        console.error('구글 캘린더 연동 일정 삭제 실패:', err);
+      }
+    }
+  };
 
   // --- Analytics ---
   const totalReadings = useMemo(() => subjects.reduce((sum, s) => sum + Object.values(s.history || {}).reduce((a, b) => a + b, 0), 0), [subjects]);
@@ -704,6 +724,14 @@ export default function App() {
                   newSubjectName={newSubjectName} setNewSubjectName={setNewSubjectName}
                   newSubjectColor={newSubjectColor} setNewSubjectColor={setNewSubjectColor}
                 />
+                <TodoSection
+                  selectedDate={selectedDate} diaries={diaries} saveDiary={saveDiary}
+                  todos={todos} addTodo={addTodo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} reorderTodos={setTodos} newTodo={newTodo} setNewTodo={setNewTodo} celebratingId={celebratingId}
+                  searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
+                  setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
+                  pomoSessions={pomoSessions} currentMood={currentMood} weatherData={weatherData}
+                  setCurrentPomoTag={setCurrentPomoTag}
+                />
               </div>
             )}
 
@@ -731,16 +759,7 @@ export default function App() {
                 currentPomoTag={currentPomoTag} setCurrentPomoTag={setCurrentPomoTag}
               />
 
-              {!isZenMode && (
-                <TodoSection
-                  selectedDate={selectedDate} diaries={diaries} saveDiary={saveDiary}
-                  todos={todos} addTodo={addTodo} toggleTodo={toggleTodo} deleteTodo={deleteTodo} reorderTodos={setTodos} newTodo={newTodo} setNewTodo={setNewTodo} celebratingId={celebratingId}
-                  searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
-                  setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
-                  pomoSessions={pomoSessions} currentMood={currentMood} weatherData={weatherData}
-                  setCurrentPomoTag={setCurrentPomoTag}
-                />
-              )}
+              {/* TodoSection은 좌측 메인단(lg:col-span-8)으로 이동되었습니다. */}
             </div>
           </main>
 

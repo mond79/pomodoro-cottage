@@ -97,7 +97,11 @@ export default function CalendarView({
 
                                         <div className="space-y-1 mt-1 absolute bottom-2 right-2 flex gap-1">
                                             {dayEvents.map(e => (
-                                                <div key={e.id} className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500" title={e.title} />
+                                                <div 
+                                                    key={e.id} 
+                                                    className={`w-1.5 h-1.5 rounded-full ${e.category === 'birthday' ? 'bg-pink-400' : e.source === 'google' ? 'bg-blue-500' : 'bg-slate-400 dark:bg-slate-500'}`} 
+                                                    title={`${e.source === 'google' ? '[구글] ' : ''}${e.title}`} 
+                                                />
                                             ))}
                                         </div>
                                     </>

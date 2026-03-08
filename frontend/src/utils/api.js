@@ -77,6 +77,37 @@ export async function addCustomCalendarEvent(eventData) {
 }
 
 /**
+ * 구글 캘린더 일정(기본+생일) 목록 가져오기
+ */
+export async function fetchCalendarEvents() {
+    try {
+        const res = await fetch(`${API_BASE}/api/calendar/events`, { credentials: 'include' });
+        if (!res.ok) throw new Error('구글 캘린더 일정 가져오기 실패');
+        return await res.json();
+    } catch (err) {
+        console.error('Calendar events fetch failed:', err.message);
+        return [];
+    }
+}
+
+/**
+ * 구글 캘린더의 특정 일정 삭제하기
+ */
+export async function deleteCalendarEvent(eventId) {
+    try {
+        const res = await fetch(`${API_BASE}/api/calendar/events/${eventId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('구글 캘린더 일정 삭제 실패');
+        return await res.json();
+    } catch (err) {
+        console.error('Calendar event delete failed:', err.message);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
  * 환경음 목록을 가져오기
  */
 export async function fetchAmbientSounds() {

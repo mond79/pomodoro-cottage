@@ -363,7 +363,91 @@ def add_custom_event():
         print(f"DEBUG: Custom event add failed: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# 6. 구글 캘린더에서 일정(기본 캘린더 + 생일 캘린더) 가져오기
+@app.route('/api/calendar/events', methods=['GET'])
+def get_calendar_events():
+    if 'credentials' not in session:
+        return jsonify([])
 
+    credentials = Credentials(**session['credentials'])
+    service = build('calendar', 'v3', credentials=credentials)
+    
+    now = datetime.utcnow()
+    # 최근 1개월 ~ 향후 2개월 이벤트 로드
+    time_min = (now - timedelta(days=30)).isoformat() + 'Z'
+    time_max = (now + timedelta(days=60)).isoformat() + 'Z'
+    
+    all_events = []
+    
+    # [A] 기본 캘린더(Primary) 패치
+    try:
+        events_result = service.events().list(
+            calendarId='primary', 
+            timeMin=time_min, 
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        for item in events_result.get('items', []):
+            item['calendarSource'] = 'primary'
+            all_events.append(item)
+    except Exception as e:
+        print(f"DEBUG: Primary calendar fetch failed: {str(e)}")
+
+    # [B] 생일 캘린더(Birthdays) 패치
+    try:
+        birthday_result = service.events().list(
+            calendarId='addressbook#contacts@group.v.calendar.google.com', 
+            timeMin=time_min, 
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        for item in birthday_result.get('items', []):
+            item['calendarSource'] = 'birthdays'
+            all_events.append(item)
+    except Exception as e:
+        print(f"DEBUG: Birthdays calendar fetch failed: {str(e)}")
+        
+    formatted_events = []
+    for e in all_events:
+        start = e.get('start', {})
+        start_dt = start.get('dateTime') or start.get('date')
+        if not start_dt: continue
+        
+        date_str = start_dt[:10]
+        time_str = ''
+        if 'T' in start_dt:
+            time_str = start_dt[11:16]
+            
+        formatted_events.append({
+            'id': e['id'],
+            'title': e.get('summary', '제목 없음'),
+            'date': date_str,
+            'time': time_str,
+            'location': e.get('location', ''),
+            'category': 'birthday' if e.get('calendarSource') == 'birthdays' else 'google',
+            'source': 'google',
+            'eventId': e['id']
+        })
+        
+    return jsonify(formatted_events)
+
+# 7. 구글 캘린더에서 특정 이벤트 삭제
+@app.route('/api/calendar/events/<event_id>', methods=['DELETE'])
+def delete_calendar_event(event_id):
+    if 'credentials' not in session:
+        return jsonify({'error': '구글 계정으로 로그인해주세요.'}), 401
+
+    credentials = Credentials(**session['credentials'])
+    service = build('calendar', 'v3', credentials=credentials)
+    
+    try:
+        service.events().delete(calendarId='primary', eventId=event_id).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"DEBUG: Event delete failed: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ==========================================================
 #                    정적 파일 및 SPA 라우팅

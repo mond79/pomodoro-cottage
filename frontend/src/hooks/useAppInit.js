@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { fetchStatus, fetchTasks } from '../utils/api';
+import { fetchStatus, fetchTasks, fetchCalendarEvents } from '../utils/api';
 import { formatYMD } from '../utils/dateHelpers';
 import { loadStoredPlaylist } from '../utils/playlistStore';
 import { sendSmartDailyNotification } from '../utils/notifications';
@@ -9,7 +9,8 @@ export default function useAppInit({
     setTodos, todos,
     setIsGoogleLoggedIn,
     setPlaylist, setCurrentTrackIdx,
-    dDays
+    dDays,
+    events, setEvents
 }) {
     useEffect(() => {
         // 1. 날짜 변경 감지 로직 (자정이 지났으면 할 일 비우기)
@@ -24,8 +25,9 @@ export default function useAppInit({
         fetchStatus().then(data => {
             setIsGoogleLoggedIn(data.is_logged_in);
 
-            // 구글 로그인 상태라면 할 일 목록 가져오기
+            // 구글 로그인 상태라면 할 일 목록 및 캘린더 일정 가져오기
             if (data.is_logged_in) {
+                // 1) 할 일 목록 가져오기
                 fetchTasks().then(googleTasks => {
                     if (googleTasks && googleTasks.length > 0) {
                         setTodos(prev => {
@@ -33,6 +35,17 @@ export default function useAppInit({
                             const existingTexts = new Set(prev.map(t => t.text));
                             const newTasksFromGoogle = googleTasks.filter(gt => !existingTexts.has(gt.text));
                             return [...prev, ...newTasksFromGoogle];
+                        });
+                    }
+                });
+
+                // 2) 캘린더 일정 가져오기
+                fetchCalendarEvents().then(fetchedEvents => {
+                    if (fetchedEvents && fetchedEvents.length > 0) {
+                        setEvents(prev => {
+                            // 기존의 구글 동기화 이벤트는 지우고 새로운 이벤트로 덮어쓰기
+                            const localOnly = prev.filter(e => e.source !== 'google');
+                            return [...localOnly, ...fetchedEvents];
                         });
                     }
                 });
