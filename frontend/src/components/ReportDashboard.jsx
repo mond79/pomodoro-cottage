@@ -1,9 +1,16 @@
 import { useState, useMemo } from 'react';
 import { X, TrendingUp, Clock, Flame, Target, BarChart3, Tag } from 'lucide-react';
+import {
+    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+    PieChart, Pie, Legend
+} from 'recharts';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const HOUR_LABELS = ['새벽\n(0-5)', '아침\n(6-8)', '오전\n(9-11)', '점심\n(12-13)', '오후\n(14-17)', '저녁\n(18-20)', '심야\n(21-23)'];
 const HOUR_RANGES = [[0, 5], [6, 8], [9, 11], [12, 13], [14, 17], [18, 20], [21, 23]];
+
+// 과목별 도넛 차트 색상 팔레트
+const COLORS = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'];
 
 function getWeekRange(date) {
     const d = new Date(date);
@@ -262,42 +269,61 @@ export default function ReportDashboard({ pomoSessions, onClose }) {
                     />
                 </div>
 
-                {/* 📊 집중 시간 바 차트 */}
+                {/* 📊 집중 시간 바 차트 (Recharts) */}
                 <div className="mb-6 p-4 rounded-2xl bg-white/5 border border-white/10">
                     <div className="text-[11px] font-bold text-slate-400 mb-3">
                         {viewMode === 'week' ? '📊 요일별 집중 시간 (분)' : '📊 일별 집중 시간 (분)'}
                     </div>
-                    <div className="flex items-end gap-1" style={{ height: '120px' }}>
-                        {viewMode === 'week' ? (
-                            weekData.byDay.map((d, i) => (
-                                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                                    <span className="text-[9px] text-slate-500 font-bold">
-                                        {d.totalMin > 0 ? `${d.totalMin}분` : ''}
-                                    </span>
-                                    <div
-                                        className="w-full rounded-t-md transition-all duration-500 bg-gradient-to-t from-yellow-500 to-yellow-300"
-                                        style={{ height: `${(d.totalMin / maxBarVal) * 100}%`, minHeight: d.totalMin > 0 ? '4px' : '0' }}
-                                    />
-                                    <span className="text-[10px] text-slate-400 font-bold">{WEEKDAY_LABELS[i]}</span>
-                                </div>
-                            ))
-                        ) : (
-                            // 월간: 일자별 (최대 31개이므로 얇게)
-                            Array.from({ length: monthData.daysInMonth }, (_, i) => {
-                                const d = monthData.byDate[i + 1];
-                                return (
-                                    <div key={i} className="flex-1 flex flex-col items-center gap-0.5" title={`${i + 1}일: ${d.totalMin}분`}>
-                                        <div
-                                            className="w-full rounded-t-sm transition-all duration-500 bg-gradient-to-t from-emerald-500 to-emerald-300"
-                                            style={{ height: `${(d.totalMin / maxBarVal) * 100}%`, minHeight: d.totalMin > 0 ? '2px' : '0' }}
-                                        />
-                                        {(i + 1) % 5 === 0 && (
-                                            <span className="text-[8px] text-slate-500">{i + 1}</span>
-                                        )}
-                                    </div>
-                                );
-                            })
-                        )}
+                    <div className="w-full h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                                data={viewMode === 'week'
+                                    ? weekData.byDay.map((d, i) => ({ name: WEEKDAY_LABELS[i], min: d.totalMin }))
+                                    : Array.from({ length: monthData.daysInMonth }, (_, i) => ({ name: `${i + 1}일`, min: monthData.byDate[i + 1].totalMin }))
+                                }
+                                margin={{ top: 10, right: 0, left: -25, bottom: 0 }}
+                            >
+                                <XAxis 
+                                    dataKey="name" 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} 
+                                    dy={5}
+                                />
+                                <YAxis 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fill: '#64748b', fontSize: 10 }} 
+                                    domain={[0, 'dataMax + 10']}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            return (
+                                                <div className="bg-slate-800 border border-slate-700 p-2 rounded-lg shadow-xl">
+                                                    <p className="text-white text-xs font-bold">{payload[0].payload.name}</p>
+                                                    <p className="text-yellow-400 text-sm font-black">{payload[0].value}분</p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                                <Bar 
+                                    dataKey="min" 
+                                    radius={[4, 4, 0, 0]} 
+                                    maxBarSize={32}
+                                    animationDuration={1500}
+                                >
+                                    {
+                                        (viewMode === 'week' ? weekData.byDay : Array.from({ length: monthData.daysInMonth })).map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={viewMode === 'week' ? '#eab308' : '#10b981'} />
+                                        ))
+                                    }
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
 
@@ -354,24 +380,68 @@ export default function ReportDashboard({ pomoSessions, onClose }) {
                 {Object.keys(current.bySubject || {}).length > 0 && (
                     <div className="p-4 rounded-2xl bg-white/5 border border-white/10 mb-4">
                         <div className="text-[11px] font-bold text-slate-400 mb-3">📚 과목별 비율</div>
-                        <div className="flex flex-col gap-2">
-                            {Object.entries(current.bySubject)
-                                .sort((a, b) => b[1].totalMin - a[1].totalMin)
-                                .map(([name, data]) => (
-                                    <div key={name} className="flex items-center gap-2">
-                                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${data.color}`} />
-                                        <span className="text-xs text-slate-300 font-bold flex-1 truncate">{name}</span>
-                                        <span className="text-[10px] text-slate-500 font-bold">{data.count}회</span>
-                                        <span className="text-[10px] text-yellow-400 font-bold w-14 text-right">{data.totalMin}분</span>
-                                        <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-orange-400"
-                                                style={{ width: `${(data.totalMin / current.totalMin) * 100}%` }}
+                        <div className="flex flex-col sm:flex-row items-center gap-6">
+                            <div className="w-full sm:w-1/2 h-[180px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={Object.entries(current.bySubject)
+                                                .sort((a, b) => b[1].totalMin - a[1].totalMin)
+                                                .map(([name, data]) => ({ name, value: data.totalMin }))}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={70}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            stroke="none"
+                                            animationDuration={1500}
+                                        >
+                                            {
+                                                Object.entries(current.bySubject)
+                                                    .sort((a, b) => b[1].totalMin - a[1].totalMin)
+                                                    .map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))
+                                            }
+                                        </Pie>
+                                        <Tooltip 
+                                            content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    return (
+                                                        <div className="bg-slate-800 border border-slate-700 p-2 rounded-lg shadow-xl text-center">
+                                                            <p className="text-white text-xs font-bold mb-1">{payload[0].name}</p>
+                                                            <p style={{ color: payload[0].payload.fill }} className="text-sm font-black">{payload[0].value}분</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            
+                            {/* 커스텀 범례 (도넛 옆 리스트) */}
+                            <div className="w-full sm:w-1/2 flex flex-col gap-2">
+                                {Object.entries(current.bySubject)
+                                    .sort((a, b) => b[1].totalMin - a[1].totalMin)
+                                    .map(([name, data], index) => (
+                                        <div key={name} className="flex items-center gap-2">
+                                            <div 
+                                                className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" 
+                                                style={{ backgroundColor: COLORS[index % COLORS.length] }} 
                                             />
+                                            <span className="text-xs text-slate-300 font-bold flex-1 truncate leading-tight">{name}</span>
+                                            <span className="text-[10px] text-slate-500 font-bold w-8 text-right">{data.count}회</span>
+                                            <span className="text-[10.5px] text-white font-bold w-12 text-right">{data.totalMin}분</span>
+                                            <span className="text-[9px] text-emerald-400 font-bold w-9 text-right">
+                                                {current.totalMin > 0 ? Math.round((data.totalMin / current.totalMin) * 100) : 0}%
+                                            </span>
                                         </div>
-                                    </div>
-                                ))
-                            }
+                                    ))
+                                }
+                            </div>
                         </div>
                     </div>
                 )}
