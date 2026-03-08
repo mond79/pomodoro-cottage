@@ -10,7 +10,7 @@ export default function PomodoroTimer({
     pomoTime, setPomoTime, pomoDuration, changePomoDuration,
     selectedDateTomatoes, selectedDate,
     subjects, selectedSubjectId, setSelectedSubjectId,
-    pomoSessions,
+    pomoSessions, totalHarvest,
     todos, toggleTodo,
     playlist, currentTrackIdx, isPlayingAudio, toggleAudio, handleAudioUpload, audioRef,
     playTrack, removeTrack,
@@ -245,6 +245,7 @@ export default function PomodoroTimer({
                     selectedDate={selectedDate}
                     selectedDateTomatoes={selectedDateTomatoes}
                     pomoSessions={pomoSessions}
+                    totalHarvest={totalHarvest}
                     subjects={subjects}
                     selectedSubjectId={selectedSubjectId}
                     isZenMode={isZenMode}

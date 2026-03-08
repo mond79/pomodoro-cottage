@@ -27,6 +27,8 @@ import { loadStoredPlaylist, saveTrackToDB, deleteTrackFromDB } from './utils/pl
 import { playNotificationSound } from './utils/audioEffects';
 import { generateCottageGreeting } from './utils/aiBot';
 import { sendSmartDailyNotification } from './utils/notifications';
+import { captureElementToBlob, shareImageBlob } from './utils/shareUtils';
+import ShareOverlay from './components/ShareOverlay';
 
 export default function App() {
   // --- States ---
@@ -34,6 +36,7 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCapturing, setIsCapturing] = useState(false); // 📸 캡처 징계 모드 상태
 
   // Cottage Moods Theme
   const [currentMood, setCurrentMood] = useLocalStorage('gplanner-mood', 'classic');
@@ -117,6 +120,7 @@ export default function App() {
 
   // Google Calendar 연동 상태
   const [isGoogleLoggedIn, setIsGoogleLoggedIn] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
 
   // Settings Modal States
   const [settingsMessage, setSettingsMessage] = useState('');
@@ -132,6 +136,35 @@ export default function App() {
     setPlaylist, setCurrentTrackIdx,
     dDays
   });
+
+  // 📸 화면 캡처 및 공유 이벤트 (Custom Event 처리)
+  useEffect(() => {
+    const handleCaptureStart = async () => {
+      if (isCapturing) return;
+
+      setIsCapturing(true); // 캡처 모드 시작 (오버레이 노출, 버튼 숨김)
+      
+      // 상태 업데이트 후 DOM 렌더링이 완료될 시간을 약간 줌
+      setTimeout(async () => {
+        const captureArea = document.getElementById('cottage-capture-area');
+        if (captureArea) {
+          try {
+            const blob = await captureElementToBlob(captureArea);
+            await shareImageBlob(blob, `pomodoro_cottage_${formatYMD(new Date())}.png`);
+          } catch (error) {
+            alert('화면을 캡처하는 데 실패했어요. 다시 시도해 주세요.');
+          } finally {
+            setIsCapturing(false); // 캡처 모드 종료
+          }
+        } else {
+            setIsCapturing(false);
+        }
+      }, 500); // 500ms 렌더링 대기
+    };
+
+    document.addEventListener('take-snapshot', handleCaptureStart);
+    return () => document.removeEventListener('take-snapshot', handleCaptureStart);
+  }, [isCapturing]);
 
   // ⌨️ 전역 키보드 단축키 (Zen 모드, 타이머 조작)
   useEffect(() => {
@@ -590,7 +623,13 @@ export default function App() {
   const appBgClasses = timerMode === 'work' ? currentMoodData.workBg : currentMoodData.restBg;
 
   return (
-    <div className={`${isDarkMode ? 'dark' : ''} min-h-screen ${appTheme?.font || 'font-sans'} selection:bg-blue-200`}>
+    <div 
+      id="cottage-capture-area"
+      className={`${isDarkMode ? 'dark' : ''} min-h-screen ${appTheme?.font || 'font-sans'} selection:bg-blue-200 relative`}
+    >
+      {/* 📸 공유 캡처 시 나타나는 전용 오버레이 */}
+      {isCapturing && <ShareOverlay totalHarvest={totalHarvest} userName={userProfile?.name || '오두막 주인장'} />}
+
       <div
         className="min-h-screen bg-cover bg-center bg-fixed transition-all duration-1000 relative flex flex-col"
         style={{ backgroundImage: displayBgImage ? `url('${displayBgImage}')` : 'none' }}
@@ -627,7 +666,7 @@ export default function App() {
         {/* 실제 컨텐츠 */}
         <div className="relative z-10 flex-1 text-slate-700 dark:text-slate-100 p-4 md:p-8">
 
-          {!isZenMode && (
+          {!isZenMode && !isCapturing && (
             <>
               <Header
                 isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}

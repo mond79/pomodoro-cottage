@@ -73,6 +73,13 @@ export default function Header({
                     <BarChart3 className="w-5 h-5" />
                 </button>
                 <button
+                    onClick={() => document.dispatchEvent(new CustomEvent('take-snapshot'))}
+                    aria-label="오늘의 기록 캡처 및 공유"
+                    className="p-3 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-500 hover:from-pink-500 hover:to-rose-600 shadow-md shadow-pink-500/30 hover:scale-110 active:scale-95 transition-all text-white cursor-pointer"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                </button>
+                <button
                     onClick={onShowReport}
                     aria-label="집중 리포트"
                     className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all text-purple-500 dark:text-purple-400 hover:text-purple-600 cursor-pointer"

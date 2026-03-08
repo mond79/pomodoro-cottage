@@ -5,6 +5,7 @@ export default function MiniGarden({
     timerMode,
     selectedDateTomatoes,
     pomoSessions,
+    totalHarvest = 0,
     subjects,
     selectedSubjectId,
     isZenMode = false,
@@ -112,17 +113,44 @@ export default function MiniGarden({
                     const currentStage = [...GARDEN_STAGES].reverse().find(stage => total >= stage.requiredPomos) || GARDEN_STAGES[0];
                     const nextStage = GARDEN_STAGES.find(stage => stage.requiredPomos > total);
 
+                    const GARDEN_PROPS = [
+                        { min: 50, emoji: '🪑', name: '통나무 의자', position: '-bottom-2 -left-4 text-2xl' },
+                        { min: 100, emoji: '📮', name: '우체통', position: 'top-8 -right-6 text-3xl' },
+                        { min: 300, emoji: '🪧', name: '팻말', position: 'bottom-4 -right-2 text-2xl' },
+                        { min: 500, emoji: '⛲', name: '분수대', position: '-top-4 -left-6 text-4xl' },
+                        { min: 1000, emoji: '🏕️', name: '텐트', position: '-top-8 left-1/2 -translate-x-1/2 text-5xl z-0' },
+                    ];
+
                     return (
-                        <div className="flex flex-col items-center justify-center gap-3">
-                            <div className="relative w-32 h-32 md:w-40 md:h-40 flex items-center justify-center bg-white/5 rounded-full overflow-hidden shadow-lg border border-white/10">
-                                <img
-                                    src={currentStage.image}
-                                    alt={currentStage.name}
-                                    className="w-full h-full object-cover animate-[fadeIn_1s_ease-out] hover:scale-110 transition-transform duration-700 cursor-pointer"
-                                    title={currentStage.name}
-                                />
-                                <div className="absolute bottom-2 bg-black/60 px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow">
-                                    Lv.{currentStage.level} {currentStage.name.split(' (')[0]}
+                        <div className="flex flex-col items-center justify-center gap-4">
+                            <div className="relative mt-2">
+                                {/* 🎁 성장형 정원 소품 (누적 수확량 달성 시 노출, z-index 조정으로 뒤나 앞에 배치) */}
+                                {GARDEN_PROPS.map((prop, i) => {
+                                    if (totalHarvest >= prop.min) {
+                                        return (
+                                            <div 
+                                                key={`prop-${i}`}
+                                                className={`absolute animate-in zoom-in-50 duration-500 transition-transform hover:scale-125 hover:-translate-y-1 cursor-help drop-shadow-md ${prop.position} ${prop.position.includes('z-0') ? 'z-0' : 'z-20'}`}
+                                                title={`[${prop.name}] 누적 ${prop.min}토마토 달성 기념!`}
+                                            >
+                                                {prop.emoji}
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })}
+                                
+                                {/* 본체 정원 이미지 (원형 마스크) */}
+                                <div className="relative w-32 h-32 md:w-40 md:h-40 flex items-center justify-center bg-white/5 rounded-full overflow-hidden shadow-lg border border-white/10 z-10">
+                                    <img
+                                        src={currentStage.image}
+                                        alt={currentStage.name}
+                                        className="w-full h-full object-cover animate-[fadeIn_1s_ease-out] hover:scale-110 transition-transform duration-700 cursor-pointer"
+                                        title={currentStage.name}
+                                    />
+                                    <div className="absolute bottom-2 bg-black/60 px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow pointer-events-none">
+                                        Lv.{currentStage.level} {currentStage.name.split(' (')[0]}
+                                    </div>
                                 </div>
                             </div>
 
