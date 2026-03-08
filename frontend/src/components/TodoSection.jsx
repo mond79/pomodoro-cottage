@@ -12,7 +12,8 @@ export default function TodoSection({
     todos, addTodo, toggleTodo, deleteTodo, reorderTodos, newTodo, setNewTodo, celebratingId,
     searchQuery, displayedEvents, deleteEvent,
     setNewEventDate, setShowAddModal,
-    pomoSessions, currentMood, weatherData, setCurrentPomoTag
+    pomoSessions, currentMood, weatherData, setCurrentPomoTag,
+    todoCompletionRate // App.jsx에서 통계를 받아옵니다.
 }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [activeId, setActiveId] = useState(null);
@@ -95,7 +96,22 @@ export default function TodoSection({
 
             {/* Daily To-Do 🎉 드래그 앤 드롭 정렬 + 폭죽 애니메이션 */}
             <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 relative">
-                <h3 className="text-lg font-black mb-4 flex items-center gap-2"><CheckSquare className="w-5 h-5 text-green-500" /> 오늘 나의 목표</h3>
+                <div className="flex justify-between items-end mb-4">
+                    <h3 className="text-lg font-black flex items-center gap-2"><CheckSquare className="w-5 h-5 text-green-500" /> 오늘 나의 목표</h3>
+                    
+                    {/* 2. 할 일 완료 달성률 통계 진행 바 (개선사항 2번) */}
+                    {todos && todos.length > 0 && (
+                        <div className="flex flex-col items-end gap-1">
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">달성률 {todoCompletionRate}%</span>
+                            <div className="w-24 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-700 ease-out"
+                                    style={{ width: `${todoCompletionRate}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
                 <form onSubmit={handleAddTodoSubmit} className="mb-6 flex flex-col gap-2">
                     <div className="flex gap-2">
                         <input type="text" placeholder="오늘 할 일..." className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-green-500 outline-none transition-all" value={newTodo} onChange={(e) => setNewTodo(e.target.value)} />
@@ -175,9 +191,22 @@ export default function TodoSection({
                         displayedEvents.map(event => (
                             <div key={event.id} className="p-4 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 relative group">
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase inline-block ${CATEGORIES.find(c => c.id === event.category)?.color || CATEGORIES[4].color}`}>
-                                        {CATEGORIES.find(c => c.id === event.category)?.name || '기타'}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase inline-block ${CATEGORIES.find(c => c.id === event.category)?.color || CATEGORIES[4].color}`}>
+                                            {CATEGORIES.find(c => c.id === event.category)?.name || '기타'}
+                                        </span>
+                                        {/* 1. 구글 연동 뱃지 표시 (개선사항 1번) */}
+                                        {event.source === 'google' && event.category !== 'birthday' && (
+                                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                                                G 구글
+                                            </span>
+                                        )}
+                                        {event.category === 'birthday' && (
+                                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400 border border-pink-200 dark:border-pink-800">
+                                                🌸 생일
+                                            </span>
+                                        )}
+                                    </div>
                                     <button onClick={() => deleteEvent(event.id)} className="cursor-pointer text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
                                 </div>
                                 <h4 className="font-black text-slate-800 dark:text-slate-200 mb-2 leading-tight pr-4">{event.title}</h4>

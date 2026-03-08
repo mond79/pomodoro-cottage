@@ -29,6 +29,7 @@ import { generateCottageGreeting } from './utils/aiBot';
 import { sendSmartDailyNotification } from './utils/notifications';
 import { captureElementToBlob, shareImageBlob } from './utils/shareUtils';
 import ShareOverlay from './components/ShareOverlay';
+import ShortcutModal from './components/ShortcutModal';
 
 export default function App() {
   // --- States ---
@@ -49,6 +50,7 @@ export default function App() {
   const [showHeatmapModal, setShowHeatmapModal] = useState(false);
   const [showGardenAlbum, setShowGardenAlbum] = useState(false);
   const [showReportDashboard, setShowReportDashboard] = useState(false);
+  const [showShortcutModal, setShowShortcutModal] = useState(false);
 
   // D-Day & Add Event
   const [editingDDayIdx, setEditingDDayIdx] = useState(null);
@@ -183,6 +185,7 @@ export default function App() {
           setShowSettingsModal(false);
           setShowHeatmapModal(false);
           setShowGardenAlbum(false);
+          setShowShortcutModal(false);
           break;
         case 'Space':
           // 타이머 시작/일시정지 토글 (기본 스크롤 방지)
@@ -195,6 +198,9 @@ export default function App() {
           setIsZenMode(prev => !prev);
           break;
         default:
+          if (e.key === '?') {
+            setShowShortcutModal(prev => !prev);
+          }
           break;
       }
     };
@@ -691,7 +697,7 @@ export default function App() {
               <Header
                 isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}
                 searchQuery={searchQuery} setSearchQuery={setSearchQuery}
-                setShowSettingsModal={setShowSettingsModal} setShowQuoteModal={setShowQuoteModal}
+                setShowSettingsModal={setShowSettingsModal} setShowQuoteModal={setShowQuoteModal} setShowShortcutModal={setShowShortcutModal}
                 streakData={streakData} rankTitle={rankTitle} todaysQuote={todaysQuote} aiGreeting={aiGreeting}
                 currentMood={currentMood} setCurrentMood={setCurrentMood} MOODS={MOODS}
                 isGoogleLoggedIn={isGoogleLoggedIn}
@@ -730,7 +736,7 @@ export default function App() {
                   searchQuery={searchQuery} displayedEvents={displayedEvents} deleteEvent={deleteEvent}
                   setNewEventDate={setNewEventDate} setShowAddModal={setShowAddModal}
                   pomoSessions={pomoSessions} currentMood={currentMood} weatherData={weatherData}
-                  setCurrentPomoTag={setCurrentPomoTag}
+                  setCurrentPomoTag={setCurrentPomoTag} todoCompletionRate={todoCompletionRate}
                 />
               </div>
             )}
@@ -762,6 +768,11 @@ export default function App() {
               {/* TodoSection은 좌측 메인단(lg:col-span-8)으로 이동되었습니다. */}
             </div>
           </main>
+
+          {/* 단축키 도움말 모달 */}
+          {showShortcutModal && (
+            <ShortcutModal onClose={() => setShowShortcutModal(false)} />
+          )}
 
           {/* 히트맵 모달 */}
           {showHeatmapModal && (

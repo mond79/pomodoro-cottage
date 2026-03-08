@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot, BarChart3, BookOpen, TrendingUp } from 'lucide-react';
+import { Settings, Sun, Moon, Search, Quote, Edit2, Calendar as CalendarIcon, Flame, LogIn, LogOut, Palette, Bot, BarChart3, BookOpen, TrendingUp, Keyboard } from 'lucide-react';
 
 export default function Header({
     isDarkMode, setIsDarkMode,
     searchQuery, setSearchQuery,
-    setShowSettingsModal, setShowQuoteModal,
+    setShowSettingsModal, setShowQuoteModal, setShowShortcutModal,
     streakData, rankTitle, todaysQuote, aiGreeting,
     currentMood, setCurrentMood, MOODS,
     isGoogleLoggedIn, onGoogleLogin, onGoogleLogout,
@@ -99,6 +99,13 @@ export default function Header({
                     className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:rotate-90 transition-all text-slate-500 dark:text-slate-400 hover:text-indigo-500"
                 >
                     <Settings className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={() => setShowShortcutModal(true)}
+                    aria-label="단축키 안내"
+                    className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:rotate-6 transition-all text-slate-500 dark:text-slate-400 hover:text-blue-500"
+                >
+                    <Keyboard className="w-5 h-5" />
                 </button>
                 {/* 구글 캘린더 연동 버튼 */}
                 {isGoogleLoggedIn ? (
